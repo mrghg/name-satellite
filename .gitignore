@@ -1,0 +1,27 @@
+# Reference/model data never goes in git (see docs/reference-data.md)
+data/
+*.nc
+*.nc.bz2
+*.txt.gz
+*.pp
+
+# NAME run output and scratch
+runs/
+scratch/
+slurm-*.out
+
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

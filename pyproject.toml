@@ -1,0 +1,57 @@
+[project]
+name = "name-satellite"
+version = "0.0.1"
+description = "Run and process Met Office NAME back-run footprints for satellite column retrievals on JASMIN"
+readme = "README.md"
+authors = [{ name = "Matt Rigby", email = "matt.rigby@bristol.ac.uk" }]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "xarray>=2024.6",
+    "netcdf4>=1.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "pre-commit>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/name_satellite"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "refdata: needs the legacy reference data (see docs/reference-data.md); skipped if absent",
+    "slow: takes more than a few seconds",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["data"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "NPY",      # numpy-specific
+    "PD",       # pandas-vet
+    "RUF",
+    "PT",       # pytest style
+    "SIM",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"dev/scripts/*" = ["E501"]
