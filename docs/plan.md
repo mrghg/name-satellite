@@ -9,6 +9,9 @@ at a time as logged deviations; then add new features.** Agreed with Matt Rigby,
   spread between independent legacy runs of the same day as the noise yardstick (see
   [reference-data.md](reference-data.md)).
 
+Code is written for **clarity rather than perfection** (readable by scientists; workflow described
+in docstrings and [workflow.md](workflow.md)).
+
 Status key: ☐ not started, ◐ in progress, ☑ done.
 
 ## Phase 0: Ground truth and repo ☑/◐

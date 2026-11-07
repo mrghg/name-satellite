@@ -56,6 +56,25 @@ is far beyond Monte Carlo noise, and is presumably the legacy concentration unit
 **bit-identical** to the NAME_processing benchmark (`fp`, met, release positions and
 histograms), so it was made from the 2019 mixing-ratio run.
 
+## Legacy processing check (2026-11-07)
+Today's legacy code (NAME_processing 309e32e, `dev/scripts/run_legacy_process.py`) was run on scratch
+**copies** of 1 Jan (MR run) and 1–3 Jan (conc run), then compared (`dev/scripts/compare_processed.py`):
+- **MR 1 Jan vs production (2019):** footprints **bit-identical**; release met identical (temperature
+  now in K instead of °C, i.e. +273.15; lat/lon differ by float precision, about 1e-6). **Boundary
+  histograms differ:** the total over all four edges is identical per sounding, but particles
+  shift slightly between edges and heights (e.g. 0.156 vs 0.158). Today's output equals the
+  NAME_processing 2021 benchmark exactly, so the histogram code changed between May 2019 and Sept 2021.
+  Candidate commits in `~/code/acrg`: b8a2a6b9 (2020-06-23, "fixed bug in particle location
+  normalization") and db724424 (2021-01-13, `particle_location()` profiling). Not yet pinned down.
+- **Conc 1–3 Jan:** today's code gives footprints of median **0.94×** the MR production values
+  (5–95% 0.84–1.00; different random particles, and a fixed surface P/T = 345 for g s/m³ → mol/mol).
+  The **2018** conc processing gave **1.44×** (1.17–2.17×). So the 2018 unit error was in the
+  **2018 processing code**, since fixed, not in the NAME runs. Today's code does not reproduce the
+  2018 conc-processed file (ratio 0.41–0.93), so that file is not an exact test.
+- **Consequence:** the lost 2019 MR runs are not needed for exact tests. The legacy code still
+  reproduces production footprints exactly, so we can make legacy references by running it on any raw
+  output (e.g. the conc month, or our own new NAME runs).
+
 ## Validation chain
 
 1. Obs file (+ NAME surface pressure) → NAME source definitions: reproduced exactly

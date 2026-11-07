@@ -14,6 +14,27 @@ Accuracy is paramount: **reproduce legacy behaviour first, then change it only d
 - `dev/notes/`: verified facts about the legacy code, NAME 8.7.1 and the L2 data, with file:line
   references
 
+## Clarity first
+The code will be read and checked by scientists, not just run. **Prefer clear over clever or
+"perfect" code.**
+- Write straightforward, linear code with descriptive names. Avoid deep abstraction, metaprogramming
+  and dense one-liners. A little repetition is fine if it reads more easily.
+- Every module starts with a docstring that says **where it sits in the workflow** (what comes in,
+  what goes out, what step comes next). Every public function's docstring states what it does,
+  its inputs and outputs **with units**, and any assumptions.
+- Comment the *why*, especially physics, unit conversions and anything that reproduces a legacy
+  quirk (cite the legacy file:line and the `docs/deviations.md` ID).
+- Keep `docs/workflow.md` (the end-to-end workflow) up to date whenever a step changes.
+
+## Data safety
+- `data/` is **read-only** (`chmod -R a-w`). Never make it writable or modify it without the user
+  asking. To add new reference data the user (or you, when asked) runs `chmod u+w` on the specific
+  folder, adds the files, then restores `a-w`.
+- Never point legacy or experimental code at `data/` through symlinks. **Copy** the inputs into a
+  new dated scratch folder (`/work/scratch-pw5/$USER/name-satellite/...`) and write outputs only
+  there.
+- No `rm -rf` on paths built from variables. Use a new folder per attempt; leave cleanup to the user.
+
 ## Rules
 - Tooling: `uv` only (`uv sync`, `uv run ...`, `uv add ...`); never pip-install into the system.
   Python 3.12.

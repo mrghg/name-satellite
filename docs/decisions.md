@@ -15,6 +15,8 @@ with Matt Rigby unless noted.
 | D8 | 2026-11-06 | Workflow: **reproduce legacy, then fix bugs as logged deviations, then add features**. | Avoid introducing silent changes. |
 | D9 | 2026-11-06 | Tooling: uv, ruff, gitleaks (pre-commit), pytest; Python 3.12. Reference data stay out of git, verified by sha256. | |
 | D10 | 2026-11-06 | Small runs on the sci node; NAME runs and heavy processing on LOTUS2. | JASMIN usage rules. |
+| D11 | 2026-11-07 | **Clarity over perfect code.** Simple readable code; the workflow is clearly described in docstrings and `docs/workflow.md`. | Code must be checkable by scientists. |
+| D12 | 2026-11-07 | `data/` is read-only. Legacy or experimental code runs on **copies** in scratch, never through symlinks; no `rm -rf` on variable paths. | Some reference files may be the last copies. |
 
 ## Deferred options (evaluate after baseline validation)
 - **(a) Weighted release:** one column field per sounding using Source Groups, with particles

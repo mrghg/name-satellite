@@ -18,6 +18,8 @@ It replaces the ACRG satellite workflow that was spread across three legacy repo
 
 ## How it works (target design)
 
+The full step-by-step description is in [docs/workflow.md](docs/workflow.md).
+
 1. **Read retrievals.** Read satellite Level-2 files (first: University of Leicester GOSAT and
    GOSAT-2 CH4 proxy) into a standard table of soundings, each with a unique ID, its pressure
    levels, pressure weights and averaging kernel.
@@ -29,6 +31,12 @@ It replaces the ACRG satellite workflow that was spread across three legacy repo
    hourly), boundary-crossing particle histograms and release-point met. Combine the per-level
    footprints into one column footprint using the pressure weights and averaging kernel. Write
    the netCDF format the inversion code expects.
+
+## Code style
+
+The code is meant to be read and checked by scientists. We aim for **clarity over perfect code**:
+plain, well-named functions, and docstrings that say where each step sits in the workflow, with
+units.
 
 ## Getting started
 
@@ -56,7 +64,8 @@ Tests that compare against legacy output need reference files that are **not** i
 large and some are not ours to publish). Put them in `data/`, or set
 `NAME_SATELLITE_REFDATA=/path/to/them`. Tests skip automatically when the files are missing.
 [docs/reference-data.md](docs/reference-data.md) lists the files, where they came from and their
-checksums.
+checksums. `data/` is kept **read-only** (`chmod -R a-w data`) so nothing can change it by accident.
+To add files, make just that folder writable (`chmod u+w`), add them, then make it read-only again.
 
 ## Running on JASMIN
 
