@@ -41,8 +41,8 @@ Everything is matched by release ID, never by order.
 
 Particle fates (decision D13): every released particle ends in exactly one category. It either
 left through the north, east, south or west face, left through the top, or was still inside at the
-end of the run. Each category is stored as a histogram of *fractions of the particles released*, so
-all categories together sum to exactly 1. The inversion multiplies these by a global model's mole
+end of the run. Edge and top exits are stored as histograms of *fractions of the particles released*;
+for particles still inside only their fraction is stored. All categories together sum to exactly 1. The inversion multiplies these by a global model's mole
 fractions to get the background, and decides how to treat top exits and particles still inside.
 
 ## 6. Combine into column footprints *(planned)*

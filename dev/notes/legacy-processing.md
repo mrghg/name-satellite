@@ -75,3 +75,12 @@ Code: `particle_locations()`, legacy process.py ~1181 (today), acrg `acrg_name/p
   left through the top; see X6).
 - Result: same per-level totals (renormalised), but shifted edge/height fractions. Corner regions and
   edge ends are the most affected.
+
+## Particle height reference (checked 2026-11-07)
+Legacy particle-file `Ht` is **metres above ground level**:
+- The ACRG v7.2 writer (`NAMEIII_v7_2_particlelocation_satellite/Code_NameIII/Particle.F90:508`) writes
+  `NINT(XLatLong(3))`, the particle's internal NAME height, unconverted.
+- Empirically, particles leaving through the top (inside the lateral domain, age 1–719 h, 1 Jan 2013 MR
+  run) have median Ht 19,011 m over the Altiplano (terrain ~4 km), 19,012 m over the Atlantic and
+  19,013 m over the Amazon. The domain top is 19,000 m agl.
+- The processing bins heights 0–20 km in 1 km steps with no stated reference (open question 8).
