@@ -12,19 +12,23 @@ repos:
       - id: check-added-large-files
         args: ["--maxkb=1000"]
 
-  # ruff from the project's uv environment, so hooks and `uv run ruff` always agree
+  # ruff from the project's uv environment, so hooks and `uv run ruff` always agree.
+  # require_serial + --no-sync: parallel `uv run` processes otherwise block each other on uv's
+  # environment lock (seen on JASMIN, 2026-11-07).
   - repo: local
     hooks:
       - id: ruff
         name: ruff check
-        entry: uv run ruff check --fix
+        entry: uv run --no-sync ruff check --fix
         language: system
         types_or: [python, pyi]
+        require_serial: true
       - id: ruff-format
         name: ruff format
-        entry: uv run ruff format
+        entry: uv run --no-sync ruff format
         language: system
         types_or: [python, pyi]
+        require_serial: true
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0

@@ -55,10 +55,23 @@ end of the run. Edge and top exits are stored as histograms of *fractions of the
 for particles still inside only their fraction is stored. All categories together sum to exactly 1. The inversion multiplies these by a global model's mole
 fractions to get the background, and decides how to treat top exits and particles still inside.
 
-## 6. Combine into column footprints *(planned)*
+## 6. Footprints, boundary histograms and column combination *(legacy method done)*
 **In:** the per-level footprints and the sounding table. **Out:** one footprint per sounding,
 Σ over levels of (pressure weight × averaging kernel × level footprint), written in the netCDF
 format the inversion reads (legacy `fp` format and/or `srr`), with `max_level` recorded.
+
+Modules, in order:
+- `footprints.py` (6a): `grid_cell_area_m2`, `footprint_from_mixing_ratio`: field [ppm s] × 1e-6 ×
+  cell area / release duration → (mol/mol)/(mol/m²/s).
+- `boundary_histograms.py` (6b): `legacy_boundary_histograms` (variants "2019" and "2025"; the
+  D13 method is still to do).
+- `column.py` (6c): `nearest_release_levels` (legacy nearest-pressure rule) and `combine_levels`
+  (Σ footprint × pressure weight × averaging kernel over levels below `max_level`).
+- `legacy_pipeline.py`: `process_day_legacy` chains steps 5–6 exactly as legacy;
+  `write_legacy_fp_file` writes the 2019 file layout and encoding.
+
+Result: 1 Jan 2013 production footprints rebuilt **bit for bit** (every variable;
+`tests/test_processing.py`). The "2025" histogram variant also matches today's legacy code exactly.
 
 ## Validation
 Each step is first checked against the legacy pipeline's output for GOSAT-BRAZIL, January 2013

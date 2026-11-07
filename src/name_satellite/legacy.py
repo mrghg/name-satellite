@@ -7,6 +7,7 @@ not part of the new workflow itself.
 import gzip
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # Column order of a cuboid source line in a NAME III "Sources:" block, as written by
@@ -138,3 +139,22 @@ def read_legacy_met_folder(folder):
     if met.duplicated(["point_number", "level_number"]).any():
         raise ValueError(f"{folder}: repeated release IDs")
     return met.sort_values(["point_number", "level_number"], ignore_index=True)
+
+
+def legacy_grid_coordinates(origin, resolution, count):
+    """Grid coordinates built exactly as the legacy processing did (``define_grid``, NAME III).
+
+    Legacy uses ``numpy.arange(origin, origin + count*resolution - 0.01*resolution, resolution)``,
+    which differs from ``origin + resolution * i`` by up to ~1e-12 degrees. That is irrelevant
+    physically but changes the last bits of grid-cell areas and histogram bin edges, so we use the
+    same construction when reproducing legacy files bit for bit.
+
+    Args:
+        origin, resolution: from the fields-file header (degrees); count: number of cells.
+    """
+    origin = float(origin)
+    resolution = float(resolution)
+    coords = np.arange(origin, origin + count * resolution - 0.01 * resolution, resolution)
+    if len(coords) != count:
+        raise ValueError(f"Expected {count} coordinates, got {len(coords)}")
+    return coords

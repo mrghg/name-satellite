@@ -75,6 +75,14 @@ Today's legacy code (NAME_processing 309e32e, `dev/scripts/run_legacy_process.py
   reproduces production footprints exactly, so we can make legacy references by running it on any raw
   output (e.g. the conc month, or our own new NAME runs).
 
+## New code vs legacy (2026-11-07)
+`name_satellite.legacy_pipeline` rebuilds the 1 Jan 2013 production footprints from the 2019 MR raw
+output **bit for bit** in every variable (`tests/test_processing.py::test_golden_reproduces_production_20130101`).
+The production file was made from Rachel Tunnicliffe's working copy, as recorded by acrg 75793919
+(committed 2019-05-20; the file is dated 2019-05-04). The March 2019 code (d8a5e33d) could not have
+produced it: it converted every field as an air concentration. With `histogram_variant="2025"` the
+output equals today's legacy NAME_processing histograms exactly as well.
+
 ## Validation chain
 
 1. Obs file (+ NAME surface pressure) → NAME source definitions: reproduced exactly

@@ -68,14 +68,16 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☐ Hourly fields; stock NAME 8.7.1 fate format; new release-met approach.
 - Match by source/request name, never by column order. Check particle counts per source.
 
-## Phase 6: Processing
+## Phase 6: Processing ◐ (legacy reproduction ☑)
 - Port the satellite path of `NAME_processing.process()` as small pure functions:
   - unit conversion
   - footprint array
   - boundary-particle histograms
   - release met
   - column combination with pressure weights × averaging kernel and `max_level`
-- Reproduce the benchmark `fp` file for 2013-01-01 exactly, then the full month.
+- ☑ Reproduce the production `fp` file for 2013-01-01 exactly: every variable bit-identical
+  (`legacy_pipeline.process_day_legacy` + `write_legacy_fp_file`). The full month can't be checked
+  exactly because only 1 Jan of the mixing-ratio raw output survives.
 - Output both the legacy `fp` format (used by the current satellite inversion code) and `srr` (used
   by the newest inversions), as decided.
 
