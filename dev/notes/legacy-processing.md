@@ -50,3 +50,28 @@ Investigated 2026-11-06 in `~/code/NAME_processing` (commit 309e32e).
 - Level 16: 36% exit through the top.
 - Level 17 (layer about 65–30 hPa, centre 47.5 hPa ≈ 20.5 km): 89% die at age 0; 99% leave through the top.
 - Obs levels at 10, 1 and 0.1 hPa are above the met top; their PW·AK is about 2.4% of the total.
+
+## X14: boundary-histogram edge assignment (investigated 2026-11-07)
+Code: `particle_locations()`, legacy process.py ~1181 (today), acrg `acrg_name/process.py` (2019/2021).
+- Edge sets: N = Lat > lat_max − dlat/2, E = Long > lon_max − dlon/2, S and W likewise, using the
+  **output grid**. Each set is binned with `np.histogram2d` over (along-edge cell edges, height edges
+  0..20 km). Then each (time, level) histogram is normalised by the sum over the four edges.
+- 2019 (acrg d8a5e33d) → 2021 (01c44ad3): only additions (mean ages, 0–360° special case);
+  N/E/S/W counts unchanged.
+- **2025-05-15, NAME_processing 094d8e6** ("updated to have max of xvalues and yvalues"): the upper
+  outer bin edge is stretched to `max(values)`, so particles beyond the far end are now counted in the
+  last cell. The lower end is unchanged, so they are still dropped there. The benchmark was regenerated
+  the next day (974c176), which is why today's output "matches the benchmark".
+- 1 Jan 2013 MR run (dispersion domain = grid + 5°), out of 562,925 particles:
+
+  | Edge | Particles | Below first cell (always dropped) | Beyond last cell (dropped 2019, kept 2025+) |
+  |---|---|---|---|
+  | N | 5,748 | 1,160 | 830 |
+  | S | 74,461 | 5,798 | 4 |
+  | E | 286,332 | 4 | 761 |
+  | W | 188,306 | 5,683 | 1,170 |
+
+  Also 8,011 corner particles are on two edges, and 16,089 are on none (still inside at max age, or
+  left through the top; see X6).
+- Result: same per-level totals (renormalised), but shifted edge/height fractions. Corner regions and
+  edge ends are the most affected.

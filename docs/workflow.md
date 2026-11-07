@@ -39,6 +39,12 @@ mole fraction at the release to surface fluxes, (mol/mol)/(mol/m²/s)), counts o
 through each boundary (for boundary conditions) and the met at the release point.
 Everything is matched by release ID, never by order.
 
+Particle fates (decision D13): every released particle ends in exactly one category. It either
+left through the north, east, south or west face, left through the top, or was still inside at the
+end of the run. Each category is stored as a histogram of *fractions of the particles released*, so
+all categories together sum to exactly 1. The inversion multiplies these by a global model's mole
+fractions to get the background, and decides how to treat top exits and particles still inside.
+
 ## 6. Combine into column footprints *(planned)*
 **In:** the per-level footprints and the sounding table. **Out:** one footprint per sounding,
 Σ over levels of (pressure weight × averaging kernel × level footprint), written in the netCDF
