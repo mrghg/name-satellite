@@ -17,12 +17,17 @@ and per-level pressure (hPa), pressure weight, averaging kernel and a priori.
 Quality filters (and optional legacy-style binning onto the NAME grid) are applied here. The same
 table is written as the observation file that the inversion reads.
 
-## 2. Plan releases *(planned)*
+## 2. Plan releases *(in progress: `name_satellite/releases.py`)*
 **In:** the sounding table and a pressure ceiling. **Out:** a release plan: for each sounding and
 each retrieval level below the ceiling, a vertical layer (pressure top and bottom, Pa), a
 horizontal box (the footprint size), a 60 s release time and a particle rate.
 Layers run between the midpoints of neighbouring retrieval levels. The lowest layer starts at the
 surface. Legacy details: `dev/notes/gosat-l2-and-preprocessing.md`.
+
+Done: `release_layers_pa` (layer centre and thickness, Pa) and `particles_per_second` (legacy
+rate rule). They reproduce the vertical layers, positions, times and rates of all 11,526 legacy
+sources for January 2013 (`tests/test_releases.py`). Still to do: pressure ceiling, footprint size,
+and assembling a release plan table.
 
 ## 3. Write NAME inputs *(planned)*
 **In:** the release plan, domain settings and the met version available for the dates. **Out:** a

@@ -32,9 +32,12 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   to the NAME grid. Test them against `acrg.satellite.gosat` on the same file.
 - Write the observation netCDF in the legacy format (dims `time`, `lev`, `id`).
 
-## Phase 2: Release planning
-- Release layers from retrieval levels (legacy `midpoint_bounds`, `set_as_edges=False`). Golden
-  test: reproduce the 425 sources in the legacy input file.
+## Phase 2: Release planning ◐
+- ☑ Release layers from retrieval levels (legacy `midpoint_bounds`, `set_as_edges=False`):
+  `releases.release_layers_pa`. Golden tests reproduce all legacy sources (1 Jan MR run, and all 31
+  days / 678 soundings / 11,526 sources of the conc run): levels 3–17 from the obs file alone;
+  levels 1–2 also once the legacy NAME surface pressure (inferred) is supplied.
+- ☑ Legacy particle-rate rule: `releases.particles_per_second`.
 - **Pressure-based release ceiling.** Any ceiling below the NAME domain top is allowed. Validate
   that ceiling < domain Z max < met top (about 29 km).
 - Bottom-layer anchoring: a decision is pending (legacy used a separate NAME surface-pressure
