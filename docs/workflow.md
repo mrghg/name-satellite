@@ -38,11 +38,16 @@ Each day is a SLURM job on LOTUS2. NAME runs backwards in time for up to 30 days
 each release, a footprint field (time-integrated or hourly) and a record of where and when each
 particle left the domain.
 
-## 5. Read NAME output *(planned)*
+## 5. Read NAME output *(in progress: `name_satellite/name_output.py`, `legacy.py`)*
 **In:** NAME fields and particle files. **Out:** for each release, a footprint (sensitivity of the
 mole fraction at the release to surface fluxes, (mol/mol)/(mol/m²/s)), counts of particles leaving
 through each boundary (for boundary conditions) and the met at the release point.
 Everything is matched by release ID, never by order.
+
+Done: `read_fields` (NAME text fields → array over source × lat × lon, keyed by source name;
+missing all-zero rows restored), `read_acrg_particle_file` (legacy particle fates), and legacy
+release-point met (`legacy.read_legacy_met_folder`). Tested on every day of January 2013. Still to
+do: hourly fields, and the stock NAME 8.7.1 fate-output format.
 
 Particle fates (decision D13): every released particle ends in exactly one category. It either
 left through the north, east, south or west face, left through the top, or was still inside at the

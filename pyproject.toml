@@ -28,7 +28,7 @@ packages = ["src/name_satellite"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not slow'"  # run everything with: uv run pytest -m ""
 markers = [
     "refdata: needs the legacy reference data (see docs/reference-data.md); skipped if absent",
     "slow: takes more than a few seconds",
@@ -51,6 +51,10 @@ select = [
     "RUF",
     "PT",       # pytest style
     "SIM",
+]
+ignore = [
+    "PD011",                       # flags xarray's standard `.values`
+    "RUF001", "RUF002", "RUF003",  # allow scientific symbols (×, °, …) in text
 ]
 
 [tool.ruff.lint.per-file-ignores]

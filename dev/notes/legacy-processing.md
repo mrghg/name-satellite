@@ -84,3 +84,23 @@ Legacy particle-file `Ht` is **metres above ground level**:
   run) have median Ht 19,011 m over the Altiplano (terrain ~4 km), 19,012 m over the Atlantic and
   19,013 m over the Amazon. The domain top is 19,000 m agl.
 - The processing bins heights 0–20 km in 1 km steps with no stated reference (open question 8).
+
+## Zero surface footprints at mid levels (1 Jan 2013 MR run; to investigate with new runs)
+Number of soundings (of 25) whose release at each level has an all-zero surface footprint:
+
+| Level | 1–3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Zero | 0 | 1 | 8 | 11 | 11 | 10 | 4 | 6 | 6 | 7 | 9 | 11 | 17 | 23 | 25 |
+
+For example, sounding 1 has nonzero totals at levels 1–3 and 9–14 but zero at 4–8. Rapid lateral
+exit can explain zeros, but the non-monotonic pattern with height is worth checking: it may relate
+to the "poor performance high up" anecdote, or to the 30/s → 3/s particle split (levels ≥ 13).
+
+## Release-point met = release pressure (checked 2026-11-07)
+The legacy met run samples met at each release point, with the height given in Pa, so the met
+"Pressure" equals the requested release-layer centre (rtol 1e-6). The only exceptions are releases
+below the model ground: 22 of 11,526 in January 2013 (levels 1–2), where NAME reports a lower
+pressure (the surface). The processing's "nearest NAME level by air_pressure" therefore matches
+retrieval levels to release-layer centres (except for those cases), not to an independent met
+pressure. Particle counts are exactly 60 × rate + 1 per source (NAME releases at both ends of the
+60 s window).

@@ -47,7 +47,8 @@ git clone <repo-url> name-satellite
 cd name-satellite
 uv sync                       # creates .venv with Python 3.12 and all dependencies
 uv run pre-commit install     # ruff + gitleaks checks on every commit
-uv run pytest                 # run the tests
+uv run pytest                 # run the fast tests
+uv run pytest -m ""           # run everything, including slow month-scale checks
 ```
 
 Useful commands:

@@ -61,9 +61,11 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - SLURM job generation (array per day), scratch handling, met restore, manifests, idempotent
   restarts, captured logs, and failure detection that parses NAME's logs.
 
-## Phase 5: Reading NAME output
-- Fields text files (time-integrated and hourly), particle fate files (legacy ACRG format and
-  stock NAME 8.7.1 fate format), met output.
+## Phase 5: Reading NAME output ◐
+- ☑ Time-integrated fields text files (`name_output.read_fields`), legacy ACRG particle files
+  (`read_acrg_particle_file`) and legacy release-point met (`legacy.read_legacy_met_folder`), checked
+  against the source list for all 31 days of January 2013.
+- ☐ Hourly fields; stock NAME 8.7.1 fate format; new release-met approach.
 - Match by source/request name, never by column order. Check particle counts per source.
 
 ## Phase 6: Processing
