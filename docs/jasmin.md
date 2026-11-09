@@ -6,13 +6,40 @@
 - **LOTUS2 (SLURM):** all NAME runs and anything heavy (month-scale processing, many days).
   Submit with `sbatch`; never run NAME interactively.
 
-## LOTUS2 notes
-- Partitions include `standard`, `debug`, `special`, `interactive`. The legacy job scripts use
-  retired settings (`par-single`, the `ivybridge` constraint, `intel/17` modules, `/gws/nopw/j04`
-  paths) and will not work.
-- Account / QoS for this project: **TBD** (open question 4 in decisions.md).
-- Scratch: `/work/scratch-pw[4-7]/$USER` (fast, not backed up, purged). Put NAME working
-  directories and restored met here.
+## LOTUS2 notes (checked 2026-11-09 against help.jasmin.ac.uk)
+Jobs are submitted with `sbatch` directly from the sci servers. Every job needs `--account`,
+`--partition` and `--qos` (and should give `--mem` and `--time`); a wrong pairing fails with
+"Invalid account or account/partition combination specified".
+
+- **Account: use `--account=acrg`** (decided 2026-11-09). Matt is also in `name`, `footprints`,
+  `inhale`, `dare_uk`, `ai4netzero` (ignore `shobu`). The account only decides which project the
+  compute is charged to; file access comes from Unix groups (`gws_name`, `gws_acrg`,
+  `gws_footprints`), which every job inherits.
+- **Partition / QoS:**
+
+  | QoS | Partition | Max CPUs/job | Max wall time | Max memory | Max jobs/user | Use |
+  |---|---|---|---|---|---|---|
+  | `debug` | `debug` | 8 | 1 h | – | 32 | testing; dedicated nodes |
+  | `short` | `standard` | 1 | 4 h | 200 GB | 2000 | short single-CPU jobs |
+  | `standard` | `standard` | 1 | 24 h | 128 GB | 4000 | default |
+  | `long` | `standard` | 1 | 5 days | 128 GB | 1350 | long, lower priority |
+  | `high` | `standard` | 96 | 48 h | 1000 GB | – | multi-CPU / big memory |
+
+  Note: only `debug` and `high` allow more than one CPU, so multi-threaded NAME runs need `high`
+  (or `debug` for tests, up to 8 CPUs).
+- Job arrays: at most 10,000 elements. Do **not** poll Slurm with `watch` or similar loops.
+- The legacy job scripts use retired settings (`par-single`, the `ivybridge` constraint, `intel/17`
+  modules, `/gws/nopw/j04` paths) and will not work.
+
+## Storage (be careful)
+| Where | Size / limit | Use |
+|---|---|---|
+| Home `~` | 100 GB quota (~9 GB used, 2026-11-09) | code, small outputs only; don't push it |
+| `~/acrg/mattrigby` = `/gws/ssde/j25b/acrg/mattrigby` | ACRG GWS, **97% full (~700 GB free of 22 TB, 2026-11-09)** | larger outputs to keep |
+| `/work/scratch-pw[4-7]/mattrigby` | max 100 TB in total; files **deleted 28 days after last access** | NAME working directories, restored met, intermediate files |
+
+Run NAME in scratch, copy only what we keep (processed footprints, logs, inputs) to the GWS folder.
+Avoid putting more than 100,000 files in one directory.
 
 ## Paths
 | What | Path |

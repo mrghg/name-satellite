@@ -19,6 +19,7 @@ with Matt Rigby unless noted.
 | D12 | 2026-11-07 | `data/` is read-only. Legacy or experimental code runs on **copies** in scratch, never through symlinks; no `rm -rf` on variable paths. | Some reference files may be the last copies. |
 | D13 | 2026-11-07 | **Particle-fate accounting for boundary sensitivities.** Every released particle is assigned to exactly one fate, and all fates are stored as fractions of the particles released, so they sum to exactly 1: (1) left through a lateral face of the dispersion domain → `N/E/S/W` histograms (along-edge cell × height), with the along-edge position clipped to the nearest output-grid cell; (2) left through the top → `top` histogram (lat × lon); (3) still inside at the end of the run → **only the fraction** is stored (per release and per column), not its location: if it is large the footprint should not be used, and if small the histograms can be rescaled with little error (decided with Matt, 2026-11-07); (4) anything else (NAME error flags) → a count that must be 0, else fail. Mean age per bin is kept (enough time information). How to treat (2) and (3) is left to the inversion; a legacy-style lateral-only renormalised version may be derived for compatibility. Height coordinate of the histograms: see open question 8. Legacy 2019 and 2025 variants are reproducible behind a switch (X14). | The inversion needs histograms that sum to 1 (background = histograms × global-model curtain). The legacy edge assignment double-counts corners and drops particles (X14), and ignores top exits and particles still inside (X6). |
 | D14 | 2026-11-07 | Boundary-histogram heights are binned in **pressure** (fixed pressure bins, finer near the surface; NAME fate output requested in `Pa`). The legacy m-agl bins are reproducible behind the legacy switch. | Global-model curtains are on hybrid sigma-pressure levels, which convert to pressure simply (p = a + b·ps); retrievals and release layers are already in pressure; terrain is handled naturally (empty bins below the surface). To check: NAME 8.7.1 supports a `Pa` Z-coordinate for particle-information output. |
+| D15 | 2026-11-09 | LOTUS2 jobs use `--account=acrg`, submitted from the sci servers. NAME runs in scratch; outputs to keep go to `~/acrg/mattrigby` (GWS nearly full: keep only processed footprints, inputs, logs). | Matt's choice; storage limits in `docs/jasmin.md`. |
 
 ## Deferred options (evaluate after baseline validation)
 - **(a) Weighted release:** one column field per sounding using Source Groups, with particles
@@ -35,8 +36,9 @@ with Matt Rigby unless noted.
 2. **Release-point met.** The per-release met-extraction run exceeds NAME's grid limits. Options:
    per-particle met output; reading UM/NAME met directly.
 3. Is any **ACRG NAME code modification** still needed? Stock 8.7.1 fate output appears sufficient.
-4. LOTUS2 **account/QoS**, scratch location, output location on the GWS, and the GitHub repo
-   location.
+4. ~~LOTUS2 account/QoS, scratch, output location, GitHub~~ Mostly resolved (2026-11-09): submit from
+   sci servers; QoS/partitions in `docs/jasmin.md`; outputs to keep go to `~/acrg/mattrigby`
+   (GWS nearly full), working files to scratch; GitHub `mrghg/name-satellite`; Slurm account `acrg`.
 5. **GOSAT-2 footprint size** (legacy uses 10.5 km for GOSAT-1).
 6. Keep legacy **binning** (means over 0.234° × 0.352° cells) as an option?
 8. ~~**Height reference of boundary histograms.**~~ **Resolved by D14 (pressure).** Background: The legacy particle heights are **m agl** (checked
