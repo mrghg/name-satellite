@@ -24,14 +24,19 @@ horizontal box (the footprint size), a 60 s release time and a particle rate.
 Layers run between the midpoints of neighbouring retrieval levels. The lowest layer starts at the
 surface. Legacy details: `dev/notes/gosat-l2-and-preprocessing.md`.
 
-Done: `release_layers_pa` (layer centre and thickness, Pa) and `particles_per_second` (legacy
-rate rule). They reproduce the vertical layers, positions, times and rates of all 11,526 legacy
-sources for January 2013 (`tests/test_releases.py`). Still to do: pressure ceiling, footprint size,
-and assembling a release plan table.
+Done: `release_layers_pa` (layer centre and thickness, Pa), `particles_per_second` (legacy
+rate rule), `footprint_box_degrees` (10.5 km box, legacy haversine) and `build_release_plan` (one
+row per release: name, sounding, level, times, box, layer, rate). They reproduce the vertical layers, positions, times and rates of all 11,526 legacy
+sources for January 2013 (`tests/test_releases.py`). Still to do: pressure ceiling.
 
-## 3. Write NAME inputs *(planned)*
+## 3. Write NAME inputs *(first version: `name_satellite/name_input.py`, `met.py`)*
 **In:** the release plan, domain settings and the met version available for the dates. **Out:** a
 NAME input file per day: one source and one output request per release, plus particle-fate output.
+
+`met.met_version_for_period` picks the UM version (NAME team's 8.7.1 dates);
+`required_met_files`/`missing_met_files` check the archive (all 3,542 Mk6 files for 1 Jan 2013
+are present). `name_input.write_name_input(path, plan, RunSettings(...))` writes the file in
+NAME 8.7.1 syntax, using the NAME team's met declarations and restore script. Not yet run in NAME.
 
 ## 4. Run NAME *(planned)*
 Each day is a SLURM job on LOTUS2. NAME runs backwards in time for up to 30 days. It writes, for

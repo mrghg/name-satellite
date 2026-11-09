@@ -47,11 +47,12 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - An explicit "release plan" object (sounding ID, level, pressure bounds, particle rate, optional
   weight), so the future weighted-release option can slot in.
 
-## Phase 3: NAME input generation
-- Python templating of NAME input files (no ksh). Golden tests against the legacy
-  `Input_files` (NAME 7.2 syntax), then target NAME 8.7.1.
-- Met registry built from the actual archive coverage (Mk10 → Mk11 → Mk12) rather than hard-coded
-  epoch boundaries. Choose the run length and met version from what exists.
+## Phase 3: NAME input generation ◐
+- ☑ Python writer for NAME 8.7.1 input files (`name_input.py`); sources round-trip exactly and
+  match the legacy sources; legacy timing reproducible (`integration="legacy_2019"`).
+- ☐ Check the file with NAME 8.7.1 itself (LOTUS2 debug job).
+- ☑ Met registry (`met.py`): official 8.7.1 version dates, file names from NAME's met
+  definitions, archive check. ☐ Runs spanning a changeover (currently refused).
 - Domains as configuration (grid, dispersion domain, Z max).
 - Time-integrated and hourly (HiTRes) output modes.
 - Release-point met without the per-release grid explosion (the legacy method fails with

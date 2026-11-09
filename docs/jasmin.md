@@ -38,6 +38,10 @@ Jobs are submitted with `sbatch` directly from the sci servers. Every job needs 
 | `~/acrg/mattrigby` = `/gws/ssde/j25b/acrg/mattrigby` | ACRG GWS, **97% full (~700 GB free of 22 TB, 2026-11-09)** | larger outputs to keep |
 | `/work/scratch-pw[4-7]/mattrigby` | max 100 TB in total; files **deleted 28 days after last access** | NAME working directories, restored met, intermediate files |
 
+Met restore (official `MetRestore_JASMIN.sh`): Mk6 files are **copied and unzipped** into the met
+folder (one day ≈ 3 GB gzipped, ≈ 12 GB unzipped, so ≈ 390 GB for a 30-day back-run). Mk10–12 are
+linked, not copied. Use one shared met folder in scratch for all days of a month.
+
 Run NAME in scratch, copy only what we keep (processed footprints, logs, inputs) to the GWS folder.
 Avoid putting more than 100,000 files in one directory.
 
