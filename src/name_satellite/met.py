@@ -137,3 +137,62 @@ def missing_met_files(version, file_names, archive=MET_ARCHIVE):
         for name in file_names
         if not (folder / name).exists() and not (folder / f"{name}.gz").exists()
     ]
+
+
+def _gzip_uncompressed_size(path):
+    """Uncompressed size recorded in a gzip file's last 4 bytes (modulo 2**32)."""
+    with open(path, "rb") as f:
+        f.seek(-4, 2)
+        return int.from_bytes(f.read(4), "little")
+
+
+def restore_met_files(version, file_names, met_folder, archive=MET_ARCHIVE):
+    """Make every met file available in ``met_folder`` before any NAME run starts.
+
+    This replaces NAME's on-demand restore for batch runs: several NAME jobs restoring into the
+    same folder at once read half-written files and lost particles (docs/jasmin.md). Here:
+
+    * a gzipped archive file is decompressed to "<name>.partial" and then renamed, so a file
+      under its final name is always complete;
+    * an uncompressed archive file is linked, not copied (as the NAME team's restore script);
+    * a file already present is kept if its size matches the archive, otherwise an error is
+      raised (it is never silently overwritten).
+
+    Returns:
+        dict with counts: ``restored``, ``linked``, ``already_present``.
+    """
+    import gzip
+    import os
+    import shutil
+
+    folder = Path(met_folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    source_folder = Path(archive) / version.archive_folder
+    counts = {"restored": 0, "linked": 0, "already_present": 0}
+    for name in file_names:
+        target = folder / name
+        plain = source_folder / name
+        zipped = source_folder / f"{name}.gz"
+        if plain.exists():
+            expected = plain.stat().st_size
+        elif zipped.exists():
+            expected = _gzip_uncompressed_size(zipped)
+        else:
+            raise FileNotFoundError(f"{name} is not in {source_folder}")
+
+        if target.exists():
+            if target.stat().st_size % 2**32 != expected % 2**32:
+                raise ValueError(f"{target} exists but its size differs from the archive")
+            counts["already_present"] += 1
+        elif plain.exists():
+            target.symlink_to(plain)
+            counts["linked"] += 1
+        else:
+            partial = folder / f"{name}.partial"
+            with gzip.open(zipped, "rb") as source, open(partial, "wb") as destination:
+                shutil.copyfileobj(source, destination, length=16 * 2**20)
+            if partial.stat().st_size % 2**32 != expected % 2**32:
+                raise ValueError(f"Decompressed {name} has the wrong size")
+            os.replace(partial, target)
+            counts["restored"] += 1
+    return counts

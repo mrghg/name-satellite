@@ -155,3 +155,32 @@ def test_input_text_contents(plan_20130101):
     # Legacy minimum boundary-layer depth of 40 m in every met module instance.
     assert text.count("Global_Mk6_PT1, 40.0,") == 1
     assert "TGridEndOfRun, 1, 01:00, 02/12/2012 14:58:50" in text
+
+
+def test_restore_met_files(tmp_path):
+    import gzip
+
+    from name_satellite.met import MetVersion, restore_met_files
+
+    archive = tmp_path / "archive"
+    (archive / "Global" / "X").mkdir(parents=True)
+    with gzip.open(archive / "Global" / "X" / "MO1.pp.gz", "wb") as f:
+        f.write(b"zipped met")
+    (archive / "Global" / "X" / "MO2.pp").write_bytes(b"plain met")
+    version = MetVersion("X", "2000-01-01", None, "d.txt", "u.txt", "Global/X")
+
+    met = tmp_path / "met"
+    counts = restore_met_files(version, ["MO1.pp", "MO2.pp"], met, archive=archive)
+    assert counts == {"restored": 1, "linked": 1, "already_present": 0}
+    assert (met / "MO1.pp").read_bytes() == b"zipped met"
+    assert (met / "MO2.pp").is_symlink()
+    assert not list(met.glob("*.partial"))
+    # Second call: nothing to do.
+    again = restore_met_files(version, ["MO1.pp", "MO2.pp"], met, archive=archive)
+    assert again["already_present"] == 2
+    # A wrong-sized existing file is an error, not overwritten.
+    (met / "MO1.pp").write_bytes(b"truncated")
+    with pytest.raises(ValueError, match="size differs"):
+        restore_met_files(version, ["MO1.pp"], met, archive=archive)
+    with pytest.raises(FileNotFoundError):
+        restore_met_files(version, ["MO3.pp"], met, archive=archive)
