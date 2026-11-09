@@ -83,6 +83,7 @@ class RunSettings:
     surface_layer_depth_m: float = 40.0  # footprint layer 0-40 m (legacy ZGrid1)
     fate_z_coord: str = "m agl"  # legacy; decision D14 will switch to "Pa"
     integration: str = "all_releases"  # or "legacy_2019" (X18)
+    use_timers: bool = True  # NAME prints a summary of time spent in each part of the run
     topography_folder: str = str(NAME_GWS / "data" / "UMTopogData")
     met_restore_script: str = str(DEMO_UTILITIES / "MetRestore_JASMIN.sh")
     name_dir: str = str(NAME_DIR)
@@ -157,12 +158,20 @@ def restart_and_cases_block():
 
 
 def openmp_block(settings):
+    # "Threads" applies to every parallel loop (particles, particle update, output processing).
+    # "Output Group Threads" parallelises over output groups; we have one, so 1 (as the NAME
+    # demo). The job must provide the same number of CPUs and OMP_NUM_THREADS (lotus.py).
     use = "Yes" if settings.threads > 1 else "No"
     return (
         "OpenMP Options:\n"
         "Use OpenMP?, Threads, Output Group Threads\n"
         f"{use}, {settings.threads}, 1\n"
     )
+
+
+def timer_block(settings):
+    use = "Yes" if settings.use_timers else "No"
+    return f"Timer Options:\nUse Timers?, Summary Only?\n{use}, Yes\n"
 
 
 def files_and_coordinates_block(settings):
@@ -342,6 +351,7 @@ def name_input_text(plan, settings):
         main_options_block(settings, len(plan)),
         restart_and_cases_block(),
         openmp_block(settings),
+        timer_block(settings),
         files_and_coordinates_block(settings),
         grids_block(settings, timing),
         domain_block(settings, timing),

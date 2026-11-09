@@ -39,8 +39,9 @@ are present). `name_input.write_name_input(path, plan, RunSettings(...))` writes
 NAME 8.7.1 syntax, using the NAME team's met declarations and restore script. Checked by a short
 NAME 8.7.1 run on LOTUS2.
 
-## 4. Run NAME *(planned)*
-Each day is a SLURM job on LOTUS2. NAME runs backwards in time for up to 30 days. It writes, for
+## 4. Run NAME *(job scripts: `name_satellite/lotus.py`)*
+Each day is a SLURM job on LOTUS2. `lotus.write_job_script` writes the job with the NAME team's
+environment; one thread count sets the job's CPUs, `OMP_NUM_THREADS` and the input's `Threads`. NAME runs backwards in time for up to 30 days. It writes, for
 each release, a footprint field (time-integrated or hourly) and a record of where and when each
 particle left the domain.
 

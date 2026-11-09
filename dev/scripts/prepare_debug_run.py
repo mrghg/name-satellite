@@ -19,41 +19,13 @@ from pathlib import Path
 import xarray as xr
 
 from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
-from name_satellite.met import NAME_DIR, met_version_for_period
+from name_satellite.lotus import write_job_script
+from name_satellite.met import met_version_for_period
 from name_satellite.name_input import DispersionDomain, OutputGrid, RunSettings, write_name_input
 from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
-
-JOB_TEMPLATE = """#!/bin/bash
-#SBATCH --job-name=name_debug
-#SBATCH --account=acrg
-#SBATCH --partition=debug
-#SBATCH --qos=debug
-#SBATCH --time=00:30:00
-#SBATCH --mem=8G
-#SBATCH --cpus-per-task=1
-#SBATCH --output={work}/slurm-%j.out
-#SBATCH --error={work}/slurm-%j.err
-
-# Environment as in the NAME team's 8.7.1 demo scripts
-module load jaspy
-module load oneapi/compilers/24.2.0
-module load oneapi/mpi/24.2.0
-module load netcdf/intel2024.2.0/4.9.2
-module load netcdf/intel2024.2.0/fortran/4.6.1
-export OMP_NUM_THREADS=1
-export OMP_PROC_BIND=close
-export OMP_STACKSIZE='32m'
-# Shumlib (needed to read UM met files), as in the demo scripts
-export LD_LIBRARY_PATH=${{LD_LIBRARY_PATH}}:/gws/ssde/j25a/name/lib/shumlib_2024.11.1/jasmin-lotus-ifx-gcc/lib
-
-cd {work}
-echo "Started $(date)"
-time mpirun -np 1 {name_dir}/Executables_Linux/nameiii_64bit_par.exe {work}/input.txt
-echo "NAME exit code $?; finished $(date)"
-"""
 
 
 def main(work):
@@ -79,7 +51,9 @@ def main(work):
         max_age_hours=3,
     )
     write_name_input(work / "input.txt", plan, settings)
-    (work / "job.sbatch").write_text(JOB_TEMPLATE.format(work=work, name_dir=NAME_DIR))
+    write_job_script(
+        work / "job.sbatch", work, work / "input.txt", threads=1, job_name="name_debug"
+    )
     print(f"Prepared {work}")
 
 
