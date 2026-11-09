@@ -1,12 +1,13 @@
 """Figures for the group slides on the stage 1 and 2 validation (November 2026).
 
 Reads the processed footprint files of the stage 1 runs (A, B, B2) and the stage 2 daily runs
-(written by process_stage1.py and process_stage2.py) and the production file, and writes four PNGs:
+(written by process_stage1.py and process_stage2.py) and the production file, and writes five PNGs:
 
     f1_footprint_compare.png  one sounding: production vs rebuild (seed 1) vs rebuild (seed 2)
     f2_totals_scatter.png     column totals: rebuild vs production (1-7 Jan), and seed 1 vs seed 2
     f3_x18_window.png         X18: change from correcting the integration window vs release delay
     f4_day_footprints.png     sum of the 1 Jan column footprints from run A (corrected window)
+    f5_shape_vs_cell_size.png share of the footprint in different cells vs cell size (1 Jan)
 
 matplotlib and cartopy are not project dependencies, so run with:
 
@@ -28,7 +29,7 @@ import pandas as pd
 import xarray as xr
 
 from name_satellite.refdata import ref_path
-from name_satellite.validation import near_field_ratio
+from name_satellite.validation import near_field_ratio, shape_difference
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 STAGE1 = SCRATCH / "stage1_20261109"
@@ -209,6 +210,37 @@ def figure_day(out, a, positions):
     plt.close(fig)
 
 
+def figure_shape_vs_cell_size(out, production, b, b2):
+    """F5: median share of the footprint in different cells, against cell size (1 Jan).
+
+    Share in different cells = half of shape_difference: both maps scaled to the same total, then
+    half the sum of absolute cell differences (0% = identical maps, 100% = no overlap).
+    """
+    factors = [1, 2, 4, 8, 16]
+    pairs = [
+        (production.values.astype(float), "Rebuild vs production", BLUE),
+        (b2.values.astype(float), "Seed 1 vs seed 2", ORANGE),
+    ]
+    fig, ax = plt.subplots(figsize=(9, 6.2))
+    for reference, label, colour in pairs:
+        share = [100 * np.median(shape_difference(b.values.astype(float), reference, k)) / 2
+                 for k in factors]  # fmt: skip
+        print(f"F5 {label}: " + ", ".join(f"{v:.1f}%" for v in share))
+        ax.plot(factors, share, color=colour, linewidth=2, marker="o", markersize=9,
+                markeredgecolor=SURFACE, label=label)  # fmt: skip
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(factors)
+    ax.set_xticklabels([f"{k * 0.352:.1f}°" for k in factors])
+    ax.set_xlabel("Cell width (longitude)")
+    ax.set_ylabel("Footprint in different cells (%)")
+    ax.set_ylim(0, None)
+    ax.legend(frameon=False)
+    tidy(ax)
+    fig.tight_layout()
+    fig.savefig(out / "f5_shape_vs_cell_size.png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main(out):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -225,6 +257,7 @@ def main(out):
     figure_totals(out, production_all, production_0101, b, b2)
     figure_window(out, a, b, positions)
     figure_day(out, a, positions)
+    figure_shape_vs_cell_size(out, production_0101, b, b2)
     print(f"Figures written to {out}")
 
 
