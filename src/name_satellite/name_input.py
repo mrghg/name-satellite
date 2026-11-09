@@ -74,6 +74,9 @@ class RunSettings:
     max_age_hours: int = 720  # 30 days
     sync_minutes: int = 6
     max_particles: int = 7_000_000
+    # NAME counts internal fields too (e.g. air density for mixing ratio, time integration), so
+    # this must be well above the number of requests. Legacy value.
+    max_field_requirements: int = 20_000
     threads: int = 1
     random_seed: str = "Fixed"  # legacy used "Random (Parallel)"; "Fixed" makes runs repeatable
     min_bl_depth_m: float = 40.0  # legacy; the NAME demo declarations use 100 m
@@ -134,7 +137,22 @@ def main_options_block(settings, n_sources):
         "Absolute or Relative Time?, Fixed Met?, Flat Earth?, Run Name, Random Seed, "
         "Max # Sources, Max # Field Reqs, Backwards?\n"
         f"Absolute, No, No, {settings.run_name}, {settings.random_seed}, "
-        f"{n_sources}, {n_sources}, Yes\n"
+        f"{n_sources}, {settings.max_field_requirements}, Yes\n"
+    )
+
+
+def restart_and_cases_block():
+    # Required by NAME even when unused: no restart files, a single case (no ensembles). Copied
+    # from the NAME team's 8.7.1 demo template. NAME needs the trailing commas: a line whose last
+    # item is blank must end with a comma.
+    return (
+        "Restart File Options:\n"
+        "# Cases Between Writes, Time Between Writes, Delete Old Files?, Write On Suspend?,\n"
+        ", , , ,\n"
+        "\n"
+        "Multiple Case Options:\n"
+        "Dispersion Options Ensemble Size, Met Ensemble Size,\n"
+        "1, 1,\n"
     )
 
 
@@ -322,6 +340,7 @@ def name_input_text(plan, settings):
     blocks = [
         "! NAME input file written by name_satellite (https://github.com/mrghg/name-satellite)\n",
         main_options_block(settings, len(plan)),
+        restart_and_cases_block(),
         openmp_block(settings),
         files_and_coordinates_block(settings),
         grids_block(settings, timing),

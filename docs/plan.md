@@ -50,7 +50,8 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 ## Phase 3: NAME input generation ◐
 - ☑ Python writer for NAME 8.7.1 input files (`name_input.py`); sources round-trip exactly and
   match the legacy sources; legacy timing reproducible (`integration="legacy_2019"`).
-- ☐ Check the file with NAME 8.7.1 itself (LOTUS2 debug job).
+- ☑ NAME 8.7.1 runs our input file (LOTUS2 debug job 66266117: 2 releases, 3 h, Mk6 met restored
+  automatically; fields and fate files read by our readers).
 - ☑ Met registry (`met.py`): official 8.7.1 version dates, file names from NAME's met
   definitions, archive check. ☐ Runs spanning a changeover (currently refused).
 - Domains as configuration (grid, dispersion domain, Z max).
@@ -66,7 +67,8 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☑ Time-integrated fields text files (`name_output.read_fields`), legacy ACRG particle files
   (`read_acrg_particle_file`) and legacy release-point met (`legacy.read_legacy_met_folder`), checked
   against the source list for all 31 days of January 2013.
-- ☐ Hourly fields; stock NAME 8.7.1 fate format; new release-met approach.
+- ☑ Stock NAME 8.7.1 fate format (`read_name_fate_file`).
+- ☐ Hourly fields; new release-met approach.
 - Match by source/request name, never by column order. Check particle counts per source.
 
 ## Phase 6: Processing ◐ (legacy reproduction ☑)

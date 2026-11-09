@@ -238,3 +238,48 @@ def read_acrg_particle_file(path):
 def particle_counts(particles):
     """Number of particles recorded for each NAME source number (Series indexed by number)."""
     return particles["source_number"].value_counts().sort_index()
+
+
+def read_name_fate_file(path):
+    """Read a standard NAME (8.x) particle-fate file ("Fate Info? = Yes" particle output).
+
+    NAME writes one line per particle when it stops: when it leaves the domain, or when it reaches
+    the maximum travel time (Case.F90, particles with a non-zero "mark"). After a header ending
+    with the column-heading line, each line is::
+
+        Source,Travel Time (hr),X (Lat-Long),Y (Lat-Long),Z (m agl)
+        1,3,-33.83381,-10.57067,177.79
+
+    Unlike the legacy ACRG file, the vertical coordinate is whatever the input requested (the
+    ``Z-Coord`` of the particle output block), and is named in the heading.
+
+    Args:
+        path: fate file, plain text or ``.gz``.
+
+    Returns:
+        (particles, z_units): DataFrame with ``source_number`` (1-based NAME source number),
+        ``age_hours``, ``lon``, ``lat``, ``z``; and the vertical coordinate name, e.g. "m agl" or
+        "Pa".
+    """
+    with _open_text(path) as f:
+        lines = f.read().splitlines()
+    heading = next(
+        (i for i, line in enumerate(lines) if line.strip().startswith("Source,Travel Time")), None
+    )
+    if heading is None:
+        raise ValueError(f"{path}: no 'Source,Travel Time ...' heading line")
+    columns = [c.strip() for c in lines[heading].split(",")]
+    expected = ["Source", "Travel Time (hr)", "X (Lat-Long)", "Y (Lat-Long)"]
+    if columns[:4] != expected or len(columns) != 5 or not columns[4].startswith("Z ("):
+        raise ValueError(f"{path}: unexpected columns {columns}")
+    z_units = columns[4][3:-1]
+
+    rows = [line.split(",") for line in lines[heading + 1 :] if line.strip()]
+    bad = [i for i, row in enumerate(rows) if len(row) != 5]
+    if bad:
+        raise ValueError(f"{path}: {len(bad)} lines without 5 values")
+    particles = pd.DataFrame(rows, columns=["source_number", "age_hours", "lon", "lat", "z"])
+    particles = particles.astype(
+        {"source_number": int, "age_hours": float, "lon": float, "lat": float, "z": float}
+    )
+    return particles, z_units

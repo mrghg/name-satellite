@@ -158,3 +158,20 @@ def legacy_grid_coordinates(origin, resolution, count):
     if len(coords) != count:
         raise ValueError(f"Expected {count} coordinates, got {len(coords)}")
     return coords
+
+
+def legacy_surface_pressure_hpa(sources, levels_per_sounding=17):
+    """Surface pressure (hPa) the legacy run used for each sounding's lowest release layer.
+
+    The 2013 legacy runs replaced the retrieval's surface pressure with one from a separate NAME
+    run (docs/deviations.md X9); those files are lost, but the value can be recovered from the
+    legacy input: the lowest layer is centred half its thickness above the surface.
+
+    Args:
+        sources: from ``read_name_input_sources`` (one row per source, sounding by sounding).
+
+    Returns:
+        Array with one surface pressure per sounding (hPa). Accurate to ~1e-3 Pa (file rounding).
+    """
+    lowest = sources.iloc[::levels_per_sounding]
+    return ((lowest["z"] + lowest["dz"] / 2.0) / 100.0).to_numpy()

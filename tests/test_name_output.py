@@ -177,3 +177,33 @@ def test_conc2018_all_january_fields_and_particles_match_sources(refdata):
             read_acrg_particle_file(run / "Particle_files" / f"particle_location_{tag}.txt.gz")
         )
         assert counts.tolist() == (60 * sources["particles_per_second"] + 1).tolist(), tag
+
+
+# ---------------------------------------------------------------------------------------------
+# Standard NAME 8.x particle-fate files
+# ---------------------------------------------------------------------------------------------
+
+TINY_FATE = """\
+ NAME III (version 8.7.1)
+ Run name:            debug_20130101
+ Backward trajectories
+
+ Set of particle/puff information: Particles
+ Source,Travel Time (hr),X (Lat-Long),Y (Lat-Long),Z (m agl)
+ 1,3,-33.83381,-10.57067,177.79
+ 2,2.5,-33.81963,-10.54067,383.6606
+ 1,0,-34.6,-10.4,20000
+"""
+
+
+def test_tiny_fate_file(tmp_path):
+    from name_satellite.name_output import read_name_fate_file
+
+    path = tmp_path / "Particles_C1.txt"
+    path.write_text(TINY_FATE)
+    particles, z_units = read_name_fate_file(path)
+    assert z_units == "m agl"
+    assert particles["source_number"].tolist() == [1, 2, 1]
+    assert particles["age_hours"].tolist() == [3.0, 2.5, 0.0]
+    assert particles["z"].iloc[1] == pytest.approx(383.6606)
+    assert particle_counts(particles).to_dict() == {1: 2, 2: 1}

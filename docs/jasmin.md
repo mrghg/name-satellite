@@ -62,6 +62,25 @@ Avoid putting more than 100,000 files in one directory.
 
 Met top ≈ 29 km (eta 0.364 × 80 km).
 
+## Running NAME 8.7.1 (checked 2026-11-09, debug job 66266117)
+Environment, as in the NAME team's demo scripts (`dev/scripts/prepare_debug_run.py` writes it):
+
+```bash
+module load jaspy
+module load oneapi/compilers/24.2.0 oneapi/mpi/24.2.0
+module load netcdf/intel2024.2.0/4.9.2 netcdf/intel2024.2.0/fortran/4.6.1
+export OMP_NUM_THREADS=1 OMP_PROC_BIND=close OMP_STACKSIZE=32m
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/gws/ssde/j25a/name/lib/shumlib_2024.11.1/jasmin-lotus-ifx-gcc/lib
+mpirun -np 1 /gws/ssde/j25a/name/code/NAME-8.7.1/Executables_Linux/nameiii_64bit_par.exe input.txt
+```
+
+Without the shumlib path NAME fails at start-up (`libshum_wgdos_packing.so: cannot open shared
+object file`). Input-file lessons: NAME requires `Restart File Options` and `Multiple Case Options`
+blocks; a line whose last item is blank must end with a comma; `Max # Field Reqs` must be well
+above the number of requests (mixing ratio adds internal fields; we use 20,000 like legacy).
+Output: `Fields_grid1_C1_T1_<YYYYMMDDHHMM>.txt` (read with `name_output.read_fields`) and
+`Particles_C1.txt` (fate output, `name_output.read_name_fate_file`).
+
 ## Python
 Use the project's uv environment (`uv run ...`). The legacy code's tests run under
 `module load jaspy/3.12/v20250704` if you need to compare against it.
