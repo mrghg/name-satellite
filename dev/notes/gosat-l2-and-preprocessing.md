@@ -56,3 +56,28 @@ p₀. The inferred NAME p₀ differs from the GOSAT p₀ by −15 to +37 hPa (mo
 soundings are ≈1013–1017 hPa). That is suspicious (sea-level pressure? a stale nearest-day template?). Script:
 `dev/scripts/reproduce_legacy_sources.py`. The surface-pressure files came from a separate NAME
 run (`Pressure_C1_*.txt`, `$DATA_PATH/LPDM/surface_pressure/<domain>`, nearest day within 31 days).
+
+## Current products and the new reader (checked 2026-11-09)
+Files used: GOSAT-1 v10.0 for 2013-01-01/02/07, GOSAT-2 v2.0 for 2020-01-01/02 (dap.ceda.ac.uk,
+~1 MB each), ESA CCI v7.0 for 2013-01-01/07 (/neodc/esacci), all copied to
+/work/scratch-pw5/mattrigby/name-satellite/l2_20261109.
+- **Times are whole minutes in v10 and GOSAT-2 v2** (X22): v10 time = v7.0 time floored to the
+  minute for all 2,024 common soundings on 2013-01-01. 2,179 soundings share 305 distinct times.
+  The exposure ID's embedded time is not the measurement time either (e.g. ID ...14:58:02 for a
+  sounding at 14:58:50).
+- The legacy `gosat_process_file` crashes on v10/GOSAT-2 (binning: "cannot reindex ... duplicate
+  values"); it never processed these products. With today's xarray its own file writer also fails
+  (exposure IDs as bytes), so `dev/scripts/run_legacy_gosat.py` saves the dataset before writing.
+- Running the legacy code: jaspy 3.12 lacks `rich`, `iso3166`, `openghg_defs`; they were installed
+  with `uv pip install --target` into /work/scratch-pw5/mattrigby/name-satellite/legacy_pydeps_20261109.
+- GOSAT-2 v2.0 declares `_FillValue = -9999.99` on pressure levels, so xarray reads them as NaN and
+  the legacy bad-pressure filter matches nothing (X24); 6 good-quality soundings on 2020-01-01 have an
+  undefined surface level. ESA CCI v7.0 has NaN levels only in quality-flagged soundings.
+- Some soundings over high ground (Tibet, Antarctica) have level 0 (retrieved surface pressure)
+  LOWER than level 1; 2 such good-quality soundings on 2013-01-07 (v7.0). `level_order_mask` drops them.
+- v10 attributes note a bias correction: "GOSAT-1 flat offset 16.655 ppb subtracted ...".
+  `ch4_profile_apriori` units are "1e-9" though its description says ppm (values are ppb).
+- Counts, 2013-01-01 v10: 2,179 soundings, 863 good; binned in the GOSAT-BRAZIL box: 23 (v7.0: 25;
+  the 2013 production v7.2 file: 25).
+- Our `observations.py` matches the legacy preprocessing exactly on v7.0 (1 and 7 Jan: 50 / 92
+  unbinned, 25 / 64 binned; all values identical; dlat/dlon to 1e-7 because legacy stored float32).

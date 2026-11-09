@@ -24,7 +24,14 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   rounding step off ([reference-data.md](reference-data.md#new-code-vs-legacy-2026-11-07)).
 - ☐ Remaining open questions: see [decisions.md](decisions.md#open-questions).
 
-## Phase 1: Satellite input (L2 → canonical sounding table)
+## Phase 1: Satellite input (L2 → canonical sounding table) ◐
+- ☑ `observations.py` (2026-11-09): reader for UoL OCPR GOSAT-1 v10.0, GOSAT-2 v2.0 and ESA CCI
+  v7.x; filters (quality, undefined pressure, level order, land/glint, lat/lon); legacy binning;
+  legacy observation-file writer. Identical to `acrg.satellite.gosat` on v7.0 files for 1 and 7 Jan
+  2013 (the legacy code cannot read v10/GOSAT-2). Findings: X22 (minute times), X23 (binning
+  quirks), X24 (bad-pressure filter).
+- ☐ Decide how to give soundings unique keys in the observation file now that times repeat (X22).
+- ☐ Reference data for a durable test against legacy (v7.0 L2 files + legacy output, to `data/`).
 - Reader for University of Leicester OCPR proxy XCH4: GOSAT-1 v10.0 and GOSAT-2 v2.0 (first
   supported input), plus ESA CCI v7.x for legacy validation only.
 - Canonical sounding table with explicit, stable IDs (`exposure_id`-based), time, lat/lon, footprint

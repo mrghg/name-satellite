@@ -61,6 +61,14 @@ The 2019 mixing-ratio run that the production file was made from, all 31 days. F
   folders are checked by count (one file per source, all 31 days). Like the conc archive, `Met/` also
   holds three stray folders (2010-05-21, 2014-06-08, 2015-03-31); here they were kept as delivered.
 
+### ESA CCI GOSAT OCPR v7.0, 1 and 7 Jan 2013, with legacy preprocessing (`gosat_cci_v7.0_201301_legacy_obs/`)
+Added 2026-11-09 for `tests/test_observations.py`. `l2/`: the v7.0 L2 files, copied from
+`/neodc/esacci/ghg/data/crdp_4/GOSAT/CH4_GOS_OCPR/v7.0/2013/`. `legacy_YYYYMMDD/{binned,unbinned}.nc`:
+the dataset returned by the legacy `acrg.satellite.gosat.gosat_process_file` (quality and
+bad-pressure filters, GOSAT-BRAZIL lat/lon bounds, with and without 0.234° × 0.352° binning), made by
+`dev/scripts/run_legacy_gosat.py`. The 2013 legacy obs files themselves came from v7.2, which is not
+on CEDA, and the legacy code cannot read v10 (X22), hence v7.0.
+
 ## Production processed file
 
 `GOSAT-BRAZIL-column_SOUTHAMERICA_201301.nc`: January 2013, 31 days, 678 soundings, `fp` in

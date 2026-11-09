@@ -10,12 +10,27 @@ from here to the code. Each module's docstring describes the same step in more d
          footprint netCDF ◄─ 6. Combine into column ◄─ 5. Read NAME output ◄─ 4. Run NAME (LOTUS2)
 ```
 
-## 1. Read soundings *(planned)*
-**In:** one day of satellite Level-2 files (first: University of Leicester GOSAT / GOSAT-2 CH4
-proxy). **Out:** a table with one row per sounding: ID, time, latitude/longitude, footprint size,
-and per-level pressure (hPa), pressure weight, averaging kernel and a priori.
-Quality filters (and optional legacy-style binning onto the NAME grid) are applied here. The same
-table is written as the observation file that the inversion reads.
+## 1. Read soundings *(first version: `name_satellite/observations.py`)*
+**In:** one day's University of Leicester OCPR proxy XCH4 file: GOSAT-1 v10.0 or GOSAT-2 v2.0 (ESA
+CCI v7.x for legacy validation). **Out:** a table with one entry per sounding (dims `sounding`,
+`level`): exposure ID, time, latitude/longitude, XCH4 and its uncertainty, quality and land/glint
+flags, and per-level pressure (hPa, surface first), pressure weight, averaging kernel and a priori.
+
+1. `read_l2` reads the file, identifies the product and version, checks the layout and that
+   exposure IDs are unique, and records the time resolution (v10 and GOSAT-2 store whole minutes,
+   rounded down: deviation X22).
+2. Filters give masks, applied with `select`: `quality_mask` (flag 0), `bad_pressure_mask` (no
+   undefined level, NaN or -9999.99: X24), `level_order_mask` (pressure decreasing from the
+   surface), `mode_mask` (land or glint), `latlon_mask` (lower bound included, upper excluded).
+3. Optional `legacy_bin` averages the soundings in each lat/lon bin as legacy did (quirks: X23) and
+   adds `dlat`/`dlon` (footprint + spread) for the release boxes.
+4. `to_legacy_obs` / `write_legacy_obs_file` give the legacy observation file that the inversion
+   reads and `releases.build_release_plan` takes. It is indexed by time, so it refuses duplicate
+   times (X22).
+
+Checked against the legacy `acrg.satellite.gosat` on ESA CCI v7.0 files for 1 and 7 Jan 2013
+(`dev/scripts/run_legacy_gosat.py`, `compare_observations_with_legacy.py`): same soundings, values
+identical, unbinned and binned. The legacy code cannot read v10 or GOSAT-2 files (X22).
 
 ## 2. Plan releases *(in progress: `name_satellite/releases.py`)*
 **In:** the sounding table and a pressure ceiling. **Out:** a release plan: for each sounding and

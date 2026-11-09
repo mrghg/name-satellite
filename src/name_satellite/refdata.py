@@ -26,6 +26,8 @@ MR_2019 = "gosat_brazil_20130101_mr_2019/SOUTHAMERICA_GOSAT-BRAZIL_column"
 MR_2019_MONTH = "gosat_brazil_201301_mr_2019/SOUTHAMERICA_GOSAT-BRAZIL_column"
 MR_2019_MONTH_MANIFEST = "dev/manifests/gosat_brazil_201301_mr_2019.sha256"
 RUN = "SOUTHAMERICA_GOSAT-BRAZIL_column_20130101"
+# ESA CCI v7.0 L2 files and the legacy acrg.satellite preprocessing of them (observations tests).
+CCI_V70 = "gosat_cci_v7.0_201301_legacy_obs"
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,43 @@ REFERENCE_FILES: tuple[RefFile, ...] = (
         f"{MR_2019_MONTH}/MixR_files/Fields_SOUTHAMERICA_GOSAT-BRAZIL_column_20130131.txt.gz",
         "ef6ed0af65818595a6520f6ed689c6ed8a011f1b7407e2413c6bbe3409b3f451",
         "Mixing-ratio fields of the last day of the month copy (full manifest in dev/manifests)",
+    ),
+    # --- ESA CCI v7.0 L2 files and their legacy preprocessing (observations.py tests) ---
+    RefFile(
+        "cci_v70_l2_20130101",
+        f"{CCI_V70}/l2/ESACCI-GHG-L2-CH4-GOSAT-OCPR-20130101-fv7.0.nc",
+        "a0e686c34ec48c0049868104f3c847a924149a5d1a64335682fe8d2360796ff6",
+        "ESA CCI GOSAT OCPR v7.0 L2 file, 2013-01-01 (from /neodc/esacci)",
+    ),
+    RefFile(
+        "cci_v70_l2_20130107",
+        f"{CCI_V70}/l2/ESACCI-GHG-L2-CH4-GOSAT-OCPR-20130107-fv7.0.nc",
+        "7e5722f8d862ac4c4b29c52520cda7ea1821006e11606ec62a471e79ac4a8251",
+        "ESA CCI GOSAT OCPR v7.0 L2 file, 2013-01-07",
+    ),
+    RefFile(
+        "cci_v70_legacy_binned_20130101",
+        f"{CCI_V70}/legacy_20130101/binned.nc",
+        "79f06adc5b8061fb3a46de1667a791794ce15ce26985dfcf8414401c9bf5424d",
+        "Legacy gosat_process_file output, binned (dev/scripts/run_legacy_gosat.py)",
+    ),
+    RefFile(
+        "cci_v70_legacy_unbinned_20130101",
+        f"{CCI_V70}/legacy_20130101/unbinned.nc",
+        "0f70999b0ff09a06350c70c67155c412d14214ba20ac4eee199a97370e86ac9d",
+        "Legacy gosat_process_file output, lat/lon filter only",
+    ),
+    RefFile(
+        "cci_v70_legacy_binned_20130107",
+        f"{CCI_V70}/legacy_20130107/binned.nc",
+        "ed3b0f685ec9f8fa3ef2322e69c70442dd7c9fa79a3d70e0869d4a551fff1068",
+        "Legacy gosat_process_file output, binned",
+    ),
+    RefFile(
+        "cci_v70_legacy_unbinned_20130107",
+        f"{CCI_V70}/legacy_20130107/unbinned.nc",
+        "9b491e3bec4a91e61e19df8e5c1a9e5bb451db4c11b539f932e9ea8cf27b0c4b",
+        "Legacy gosat_process_file output, lat/lon filter only",
     ),
     # --- Production processed file (whole month) ---
     RefFile(
