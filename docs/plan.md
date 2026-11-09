@@ -19,7 +19,9 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☑ Reference data for 2013-01-01 GOSAT-BRAZIL registered with checksums.
 - ☑ Showed the legacy NAME sources can be regenerated exactly from the obs file plus the NAME surface
   pressure (`dev/scripts/reproduce_legacy_sources.py`).
-- ☐ Rest of January 2013 raw output (from Matt's archive) for month-scale checks.
+- ☑ January 2013 raw output of both legacy runs (2018 conc, 2019 MR). The legacy processing port
+  reproduces the production file for all 31 days: 26 bit-identical, 5 with one footprint cell one
+  rounding step off ([reference-data.md](reference-data.md#new-code-vs-legacy-2026-11-07)).
 - ☐ Remaining open questions: see [decisions.md](decisions.md#open-questions).
 
 ## Phase 1: Satellite input (L2 → canonical sounding table)
@@ -53,11 +55,15 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☑ NAME 8.7.1 runs our input file (LOTUS2 debug job 66266117: 2 releases, 3 h, Mk6 met restored
   automatically; fields and fate files read by our readers).
 - ☑ Stage 1 validation (1 Jan 2013, all 425 releases, 30 days, Mk6; LOTUS2 jobs 66271462/3, 86 min
-  each on 4 threads). Run B (legacy window) shows no systematic difference from production at
-  the low levels (level-1 totals −1.0 ± 0.7%), and it differs from production no more than the
-  2018 legacy run does. That run isn't a clean noise baseline (air concentration, X15), so
-  ◐ a second run B2 with a different random seed gives the noise test. Run A confirms X18. Script:
-  `dev/scripts/process_stage1.py`; results in [deviations.md](deviations.md) X18, X20.
+  each on 4 threads). Noise test: run B2 is run B with a different random seed (job 66320292).
+  Run B (legacy window) differs from production by no more than B differs from B2, on every
+  measure: column totals (scatter 4.1% vs 4.3%), footprint shapes at every coarsening, edge
+  histograms, and per-release totals at every level. Column totals: B/production +0.5 ± 0.8%,
+  B2/production −0.4 ± 0.8%. Open, minor: the upper (3 particles/s) releases total 10–14% more
+  than production in both B and B2; these releases make up a median 4% of a column's footprint, so
+  ≤0.5% on columns, within noise, and one production run can't separate this from its own noise.
+  Run A confirms X18. Script: `dev/scripts/process_stage1.py`; see [deviations.md](deviations.md)
+  X18, X20.
 - ◐ Stage 2 validation (1–7 Jan 2013; `dev/scripts/prepare_stage2.py`, `process_stage2.py`):
   daily runs for 2–7 Jan with the legacy window and legacy release boxes, compared with
   production (7 Jan: 1,088 sources), and all 7 days in ONE run (2,720 sources, corrected

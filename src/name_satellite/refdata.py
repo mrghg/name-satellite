@@ -21,6 +21,10 @@ ENV_VAR = "NAME_SATELLITE_REFDATA"
 CONC_2018 = "gosat_brazil_201301/SOUTHAMERICA_GOSAT-BRAZIL_column_conc"
 CONC_2018_MANIFEST = "dev/manifests/gosat_brazil_201301_conc.sha256"
 MR_2019 = "gosat_brazil_20130101_mr_2019/SOUTHAMERICA_GOSAT-BRAZIL_column"
+# Full January 2013 of the 2019 mixing-ratio run (the production run). Its 1 Jan files are the same
+# as MR_2019's; MR_2019 is kept as it also holds time_step.txt and the NAME_processing benchmark.
+MR_2019_MONTH = "gosat_brazil_201301_mr_2019/SOUTHAMERICA_GOSAT-BRAZIL_column"
+MR_2019_MONTH_MANIFEST = "dev/manifests/gosat_brazil_201301_mr_2019.sha256"
 RUN = "SOUTHAMERICA_GOSAT-BRAZIL_column_20130101"
 
 
@@ -69,6 +73,12 @@ REFERENCE_FILES: tuple[RefFile, ...] = (
         f"{MR_2019}/Processed_Fields_files_Benchmark/GOSAT-BRAZIL-column_SOUTHAMERICA_201301.nc",
         "d73458e866448ca6ff0917945ecd99041f370a6e9081c36b9412fa88630f6e55",
         "Processed fp for 2013-01-01 only (from NAME_processing tests)",
+    ),
+    RefFile(
+        "mr2019_month_fields_20130131",
+        f"{MR_2019_MONTH}/MixR_files/Fields_SOUTHAMERICA_GOSAT-BRAZIL_column_20130131.txt.gz",
+        "ef6ed0af65818595a6520f6ed689c6ed8a011f1b7407e2413c6bbe3409b3f451",
+        "Mixing-ratio fields of the last day of the month copy (full manifest in dev/manifests)",
     ),
     # --- Production processed file (whole month) ---
     RefFile(

@@ -9,7 +9,7 @@ registered in `src/name_satellite/refdata.py`, and `tests/test_refdata.py` check
 There are **two independent NAME 7.2 runs** of this day with identical sources (25 soundings × 17
 levels = 425 sources) and an identical observation file:
 
-| | `gosat_brazil_201301/…_column_conc` (all of Jan 2013) | `gosat_brazil_20130101_mr_2019/…_column` (1 Jan only) |
+| | `gosat_brazil_201301/…_column_conc` (all of Jan 2013) | `gosat_brazil_20130101_mr_2019/…_column` (1 Jan; all of Jan in `gosat_brazil_201301_mr_2019/`) |
 |---|---|---|
 | Run date | 17 June 2018 | 26 April 2019 |
 | Origin | Matt's legacy zip archive | `NAME_processing/tests/files/LPDM/raw_output/Satellite_ByDay_MF` (commit 309e32e) |
@@ -49,6 +49,18 @@ are much larger: total-`fp` ratio conc/MR has median **1.42**, 5–95% 1.07–2.
 is far beyond Monte Carlo noise, and is presumably the legacy concentration unit-conversion error
 (decision D6).
 
+### January 2013, mixing-ratio run (`gosat_brazil_201301_mr_2019/`)
+The 2019 mixing-ratio run that the production file was made from, all 31 days. From Matt's archive
+(`gosat_brazil_201301_2019.tar.gz`), added 2026-11-09; files dated 26–27 April 2019. Checks made:
+- its 1 Jan files are identical to `gosat_brazil_20130101_mr_2019` (byte-identical, or identical
+  after decompression where only the gzip header differs); that folder is kept because it also holds
+  `time_step.txt` (60) and the NAME_processing benchmark, which the month archive lacks;
+- `Processed_Fields_files/GOSAT-BRAZIL-column_SOUTHAMERICA_201301.nc` is byte-identical to the
+  production file;
+- sha256 of all 281 non-met files in `dev/manifests/gosat_brazil_201301_mr_2019.sha256`; met
+  folders are checked by count (one file per source, all 31 days). Like the conc archive, `Met/` also
+  holds three stray folders (2010-05-21, 2014-06-08, 2015-03-31); here they were kept as delivered.
+
 ## Production processed file
 
 `GOSAT-BRAZIL-column_SOUTHAMERICA_201301.nc`: January 2013, 31 days, 678 soundings, `fp` in
@@ -83,6 +95,22 @@ The production file was made from Rachel Tunnicliffe's working copy, as recorded
 produced it: it converted every field as an air concentration. With `histogram_variant="2025"` the
 output equals today's legacy NAME_processing histograms exactly as well.
 
+**Whole month (2026-11-09).** Run on all 31 days of the 2019 MR run
+(`dev/scripts/check_month_against_production.py`,
+`tests/test_processing.py::test_golden_month_matches_production`):
+- 26 days are bit-identical to production in every variable;
+- on 3, 10, 11, 13 and 25 Jan, every variable is identical except ONE footprint cell (one sounding,
+  out of 22,000–34,000 non-zero cells), which differs by exactly one rounding step of the lossy file
+  writer (2⁻¹⁷, `least_significant_digit=5`, X7), i.e. at most 7e-4 of that sounding's maximum.
+  Column totals agree to ~1e-6.
+
+Each of those values lies within ~1e-8 of a rounding boundary, so the direction of rounding depends on
+the last bits of the floating-point arithmetic. Two float32 variants that follow the legacy code
+were tried (rounding the output `fp` to float32 before writing; rounding the input fields to float32,
+as acrg 75793919 `process.py:205-207` reads them): each fixed some of the days and broke others
+(28/31 and 25/31 identical), so the plain float64 version is kept. The remaining difference may
+depend on the 2019 numpy/netCDF4 versions; it is not worth chasing further.
+
 ## Validation chain
 
 1. Obs file (+ NAME surface pressure) → NAME source definitions: reproduced exactly
@@ -93,8 +121,8 @@ output equals today's legacy NAME_processing histograms exactly as well.
 
 ## TODO
 - ☑ January 2013 raw output of the **2018 concentration run** (added 2026-11-06).
-- ☐ January 2013 raw output of the **2019 mixing-ratio run** (only 1 Jan so far), for month-scale
-  exact checks against the production file. Maybe on the other netCDF/archive server.
+- ☑ January 2013 raw output of the **2019 mixing-ratio run** (added 2026-11-09); month-scale check
+  against the production file done (above).
 - ☐ A recent (Mk11/Mk12-era) successful legacy run, if one exists.
 
 ## Other known locations (JASMIN)

@@ -175,3 +175,56 @@ def test_golden_reproduces_production_20130101(refdata, tmp_path):
     for name in COMPARED_VARIABLES:
         np.testing.assert_array_equal(new[name].values, production[name].values, err_msg=name)
     assert new.attrs["max_level"] == production.attrs["max_level"]
+
+
+# Days of January 2013 on which ONE footprint cell differs from production by one rounding step of
+# the legacy file writer (least_significant_digit=5 rounds to multiples of 2**-17; X7). Each such
+# value lies within ~1e-8 of a rounding boundary, so the direction of rounding depends on the last
+# bits of the floating-point arithmetic (and possibly on the 2019 numpy/netCDF4 versions). Neither
+# rounding the output footprint nor the input fields to float32 (as legacy held the fields)
+# reproduces all 31 days; each fixes some days and breaks others.
+ROUNDING_STEP_DAYS = {"20130103", "20130110", "20130111", "20130113", "20130125"}
+
+
+@pytest.mark.refdata
+@pytest.mark.slow
+def test_golden_month_matches_production(refdata, tmp_path):
+    """Legacy processing of all 31 days of the 2019 MR run reproduces the production file:
+    every variable exactly, except one footprint cell (one rounding step) on ROUNDING_STEP_DAYS."""
+    from name_satellite.legacy import read_legacy_met_folder
+    from name_satellite.legacy_pipeline import process_legacy_inputs
+    from name_satellite.name_output import read_acrg_particle_file, read_fields
+
+    run = refdata("mr2019_month_fields_20130131").parents[1]
+    tag = "SOUTHAMERICA_GOSAT-BRAZIL_column"
+    production = xr.open_dataset(refdata("production_201301")).load()
+    step = 2.0**-17
+    days_with_differences = set()
+    for d in range(1, 32):
+        day = f"201301{d:02d}"
+        result = process_legacy_inputs(
+            read_fields(run / "MixR_files" / f"Fields_{tag}_{day}.txt.gz"),
+            read_acrg_particle_file(
+                run / "Particle_files" / f"particle_location_{tag}_{day}.txt.gz"
+            ),
+            read_legacy_met_folder(run / "Met" / f"Met_{tag}_{day}"),
+            xr.open_dataset(run / "Observations" / f"gosat-fts_gosat_{day}_ch4-column.nc").load(),
+            release_seconds=60.0,  # legacy time_step.txt; not in the month archive
+        )
+        out = tmp_path / f"fp_{day}.nc"
+        write_legacy_fp_file(result, out)
+        new = xr.open_dataset(out).load()
+        prod = production.sel(time=new["time"].values)
+        for name in COMPARED_VARIABLES:
+            if name == "fp":
+                continue
+            np.testing.assert_array_equal(
+                new[name].values, prod[name].values, err_msg=f"{day} {name}"
+            )
+        difference = np.abs(new["fp"].values.astype(float) - prod["fp"].values.astype(float))
+        n_cells = int((difference > 0).sum())
+        if n_cells:
+            days_with_differences.add(day)
+            assert n_cells == 1, day
+            assert difference.max() == pytest.approx(step, rel=1e-6), day
+    assert days_with_differences == ROUNDING_STEP_DAYS
