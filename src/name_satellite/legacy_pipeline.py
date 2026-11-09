@@ -85,7 +85,46 @@ def process_day_legacy(run_folder, run_name, date, max_level=17, histogram_varia
         raise ValueError(f"{obs.sizes['time']} soundings in obs file but {n_soundings} in NAME run")
 
     release_seconds = float((run_folder / "time_step.txt").read_text())
-    # Legacy stores this as hours (seconds / 3600) and multiplies back by 3600.
+    return process_legacy_inputs(
+        fields, particles, met, obs, release_seconds, max_level, histogram_variant
+    )
+
+
+def process_legacy_inputs(
+    fields, particles, met, obs, release_seconds, max_level=17, histogram_variant="2019"
+):
+    """Legacy processing (workflow step 6) of one day's NAME output already read into memory.
+
+    This is the part of ``process_day_legacy`` after the files are read. It is separate so that
+    new NAME runs (e.g. the NAME 8.7.1 validation runs, whose files are named and laid out
+    differently) go through exactly the same legacy processing.
+
+    Args:
+        fields: ``read_fields`` output in ppm s, sources ``SourceID_1..N`` in order.
+        particles: one row per particle with ``lon``, ``lat`` (degrees), ``height_m_agl`` (m)
+            and ``source_number`` (as from ``read_acrg_particle_file``).
+        met: release-point met, one row per source in source order
+            (``read_legacy_met_folder``).
+        obs: retrieval for the same day (pressure levels, weights, averaging kernel).
+        release_seconds: length of each release (s); legacy 60.
+        max_level, histogram_variant: as for ``process_day_legacy``.
+
+    Returns:
+        As ``process_day_legacy``.
+    """
+    if set(fields["units"].values) != {"ppm s"}:
+        raise ValueError(f"Expected mixing ratio in ppm s, got {set(fields['units'].values)}")
+    n_sources = fields.sizes["source"]
+    if fields["source"].values.tolist() != [f"SourceID_{n}" for n in range(1, n_sources + 1)]:
+        raise ValueError("Fields columns are not SourceID_1..N in order")
+    n_soundings = n_sources // LEVELS_PER_SOUNDING
+    source_from_met = (met["point_number"] - 1) * LEVELS_PER_SOUNDING + met["level_number"]
+    if source_from_met.tolist() != list(range(1, n_sources + 1)):
+        raise ValueError("Met files do not match the sources one-to-one in order")
+    if obs.sizes["time"] != n_soundings:
+        raise ValueError(f"{obs.sizes['time']} soundings in obs file but {n_soundings} in NAME run")
+
+    # Legacy stores the release length as hours (seconds / 3600) and multiplies back by 3600.
     release_duration_s = 3600.0 * (release_seconds / 3600.0)
 
     # --- Step 6a: footprints for every release ---------------------------------------------------
@@ -240,3 +279,15 @@ def write_legacy_fp_file(ds, path, release_duration_hours=1 / 60):
             if name.startswith("particle_locations_"):
                 side = _EDGE_NAMES[name[-1]]
                 variable.long_name = f"Fraction of total particles leaving domain ({side} side)"
+
+
+def legacy_particles_from_fate(particles, z_units):
+    """Turn a NAME 8.x fate-file table (``read_name_fate_file``) into the legacy particle table.
+
+    The legacy processing expects heights in metres above ground in a column ``height_m_agl``
+    (as in the ACRG particle files). Our NAME input writes the fate heights in m agl
+    (``RunSettings.fate_z_coord``); anything else is refused rather than converted.
+    """
+    if z_units != "m agl":
+        raise ValueError(f"Fate heights are in {z_units}, expected m agl")
+    return particles.rename(columns={"z": "height_m_agl"})

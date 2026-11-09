@@ -39,6 +39,14 @@ are present). `name_input.write_name_input(path, plan, RunSettings(...))` writes
 NAME 8.7.1 syntax, using the NAME team's met declarations and restore script. Checked by a short
 NAME 8.7.1 run on LOTUS2.
 
+Batching (`batching.py`): several days can share one NAME run, so the met they have in common is
+read once. `combine_release_plans` joins the daily plans, numbering the sources over the whole run
+(each keeps its per-day name); the integration window must then cover every release
+(`integration="all_releases"`). NAME 8.7.1 allows at most 3,000 sources per run
+(`MaxFieldReqsPerReqInfo`), i.e. about a week of GOSAT-BRAZIL. After the run,
+`split_batched_output` cuts the fields and particles back into days that look exactly like
+one-day runs, and each day is processed as usual (step 6). Being validated in stage 2.
+
 ## 4. Run NAME *(job scripts: `name_satellite/lotus.py`)*
 Each day is a SLURM job on LOTUS2. `lotus.write_job_script` writes the job with the NAME team's
 environment; one thread count sets the job's CPUs, `OMP_NUM_THREADS` and the input's `Threads`. NAME runs backwards in time for up to 30 days. It writes, for
@@ -53,8 +61,10 @@ Everything is matched by release ID, never by order.
 
 Done: `read_fields` (NAME text fields → array over source × lat × lon, keyed by source name;
 missing all-zero rows restored), `read_acrg_particle_file` (legacy particle fates), and legacy
-release-point met (`legacy.read_legacy_met_folder`). Tested on every day of January 2013. Still to
-do: hourly fields, and the stock NAME 8.7.1 fate-output format.
+release-point met (`legacy.read_legacy_met_folder`). Tested on every day of January 2013. Stock
+NAME 8.7.1 fate files: `read_name_fate_file`, turned into the legacy particle table by
+`legacy_pipeline.legacy_particles_from_fate` (heights in m agl). Still to do: hourly fields, and
+release-point met for new runs (the legacy method needs a separate, unscalable NAME run).
 
 Particle fates (decision D13): every released particle ends in exactly one category. It either
 left through the north, east, south or west face, left through the top, or was still inside at the
@@ -74,7 +84,7 @@ Modules, in order:
   D13 method is still to do).
 - `column.py` (6c): `nearest_release_levels` (legacy nearest-pressure rule) and `combine_levels`
   (Σ footprint × pressure weight × averaging kernel over levels below `max_level`).
-- `legacy_pipeline.py`: `process_day_legacy` chains steps 5–6 exactly as legacy;
+- `legacy_pipeline.py`: `process_day_legacy` chains steps 5–6 exactly as legacy (reading a legacy run folder; `process_legacy_inputs` is the same processing for data already read, e.g. NAME 8.7.1 runs);
   `write_legacy_fp_file` writes the 2019 file layout and encoding.
 
 Result: 1 Jan 2013 production footprints rebuilt **bit for bit** (every variable;
@@ -84,3 +94,9 @@ Result: 1 Jan 2013 production footprints rebuilt **bit for bit** (every variable
 Each step is first checked against the legacy pipeline's output for GOSAT-BRAZIL, January 2013
 (see [reference-data.md](reference-data.md)), before any deliberate improvements
 ([deviations.md](deviations.md)).
+
+NAME is a Monte Carlo model, so new runs are compared with legacy statistically:
+`validation.py` gives the measures (total ratios, footprint shape differences at several grid
+coarsenings, edge-histogram differences), and each is set beside the same measure for two runs
+that differ only in their random seed (pure particle noise). Scripts: `dev/scripts/process_stage1.py`
+(1 Jan 2013) and `process_stage2.py` (1–7 Jan, including the batching test).

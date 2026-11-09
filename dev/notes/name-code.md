@@ -64,3 +64,20 @@ cap at the number released.
 
 `M_NotReleased` (Case.F90 ~8333) is for particles that reflect off the ground at release when the
 source has `No Reflect? = Yes`, so it is not this effect.
+
+### Stage 1 (30-day) results, 2026-11-09
+In the 30-day runs (stage 1, run B, `Sync? = Yes`, 6 min sync) the problem is much wider: 406/425
+sources have extra records, 12,348 in total (2.2%). By level: ~35 extra per source for levels
+1–12, ~3 for 13–16, ~61 for 17. Classified by end position, B has ~10,500 more lateral exits and
+~1,650 more top exits than legacy, with the same number reaching the end of the run; the excess is
+1–2% on every calendar day. No two records are identical, and near-identical pairs have random
+height differences, so these are not the same particle written twice in the same state. Exit
+times relative to the 6 min sync cycle: legacy never writes a record at 280–360 s into the cycle;
+B writes ~12,700 there, plus 1,500 at 80–100 s.
+
+Code reading so far: fate records are written for marked particles in `CalcParticleResultsSub`
+(Case.F90 ~3509, sync-time `ReqInfoL` output), which then removes them
+(`particleArrayRemoveParticle`, which doesn't compact the array). Newly released particles are
+also written through `ReqInfoTPPInfos` (Case.F90 ~3880), which explains the doubled records for
+releases above the domain top, but not the 30-day excess. Not resolved; a question for the NAME
+team, with a minimal case (one source, a few days, fate output on).

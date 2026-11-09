@@ -52,6 +52,16 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   match the legacy sources; legacy timing reproducible (`integration="legacy_2019"`).
 - ☑ NAME 8.7.1 runs our input file (LOTUS2 debug job 66266117: 2 releases, 3 h, Mk6 met restored
   automatically; fields and fate files read by our readers).
+- ☑ Stage 1 validation (1 Jan 2013, all 425 releases, 30 days, Mk6; LOTUS2 jobs 66271462/3, 86 min
+  each on 4 threads). Run B (legacy window) shows no systematic difference from production at
+  the low levels (level-1 totals −1.0 ± 0.7%), and it differs from production no more than the
+  2018 legacy run does. That run isn't a clean noise baseline (air concentration, X15), so
+  ◐ a second run B2 with a different random seed gives the noise test. Run A confirms X18. Script:
+  `dev/scripts/process_stage1.py`; results in [deviations.md](deviations.md) X18, X20.
+- ◐ Stage 2 validation (1–7 Jan 2013; `dev/scripts/prepare_stage2.py`, `process_stage2.py`):
+  daily runs for 2–7 Jan with the legacy window and legacy release boxes, compared with
+  production (7 Jan: 1,088 sources), and all 7 days in ONE run (2,720 sources, corrected
+  window) to test batching (`batching.py`). Jobs 66323615 (met restore) and 66323616–22.
 - ☑ Met registry (`met.py`): official 8.7.1 version dates, file names from NAME's met
   definitions, archive check. ☐ Runs spanning a changeover (currently refused).
 - Domains as configuration (grid, dispersion domain, Z max).
