@@ -81,3 +81,18 @@ Code reading so far: fate records are written for marked particles in `CalcParti
 also written through `ReqInfoTPPInfos` (Case.F90 ~3880), which explains the doubled records for
 releases above the domain top, but not the 30-day excess. Not resolved; a question for the NAME
 team, with a minimal case (one source, a few days, fate output on).
+
+## Point met output (release_met.py), checked 2026-11-09
+- Fields can be output on an unstructured horizontal grid built from a `Locations:` set
+  (`Horizontal Grids:` with `Name, dX, dY, Set of Locations`), and on a vertical grid given as an
+  array (`Vertical Grids:` with `Z-Array`, values in an `Array:` block).
+- A time grid given as a `T-Array` is read but can't be used for field output: `TInTGrid` etc.
+  (GridAndDomain.F90 ~2640) assume T0 + i·dT, and the run aborts with "UNEXPECTED FATAL ERROR in
+  MultiplyShortTime". Use one regular grid (nT = 1) per time instead.
+- Limits: MaxArrays = 12, MaxArrayLength = 86, MaxLocationses = 5, MaxTGrids = 200; output
+  groups default to 100 (`Max # Field Output Groups` in Main Options).
+- Output file per output group `<group>_C1.txt`: fields-file layout with 15 header rows
+  (request, quantity, units, ..., "Z = <value> <units>"), preliminary columns
+  `T Index, Location Index, T, Location`, one row per location, 7 significant figures.
+- A pressure (Pa) point below the model ground is reported at the ground: its "Pressure (Pa)" is
+  exactly the surface pressure, and temperature etc. are the surface values.

@@ -31,6 +31,7 @@ from pathlib import Path
 import pandas as pd
 
 from name_satellite.met import DEMO_UTILITIES, NAME_DIR, NAME_GWS, MetVersion
+from name_satellite.release_met import release_met_blocks, release_met_soundings
 
 NAME_TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
 
@@ -77,12 +78,17 @@ class RunSettings:
     # NAME counts internal fields too (e.g. air density for mixing ratio, time integration), so
     # this must be well above the number of requests. Legacy value.
     max_field_requirements: int = 20_000
+    # One output group for the footprints plus one per sounding for the release-point met
+    # (release_met.py); NAME's default is 100.
+    max_field_output_groups: int = 1000
     threads: int = 1
     random_seed: str = "Fixed"  # legacy used "Random (Parallel)"; "Fixed" makes runs repeatable
     min_bl_depth_m: float = 40.0  # legacy; the NAME demo declarations use 100 m
     surface_layer_depth_m: float = 40.0  # footprint layer 0-40 m (legacy ZGrid1)
     fate_z_coord: str = "m agl"  # legacy; decision D14 will switch to "Pa"
     integration: str = "all_releases"  # or "legacy_2019" (X18)
+    # Request met at the release points in this run (release_met.py). Legacy used a separate run.
+    release_met: bool = True
     use_timers: bool = True  # NAME prints a summary of time spent in each part of the run
     topography_folder: str = str(NAME_GWS / "data" / "UMTopogData")
     met_restore_script: str = str(DEMO_UTILITIES / "MetRestore_JASMIN.sh")
@@ -136,9 +142,9 @@ def main_options_block(settings, n_sources):
     return (
         "Main Options:\n"
         "Absolute or Relative Time?, Fixed Met?, Flat Earth?, Run Name, Random Seed, "
-        "Max # Sources, Max # Field Reqs, Backwards?\n"
+        "Max # Sources, Max # Field Reqs, Max # Field Output Groups, Backwards?\n"
         f"Absolute, No, No, {settings.run_name}, {settings.random_seed}, "
-        f"{n_sources}, {settings.max_field_requirements}, Yes\n"
+        f"{n_sources}, {settings.max_field_requirements}, {settings.max_field_output_groups}, Yes\n"
     )
 
 
@@ -361,6 +367,9 @@ def name_input_text(plan, settings):
         sources_and_requests_block(plan, settings, timing),
         met_declarations_block(settings),
     ]
+    if settings.release_met:
+        soundings = release_met_soundings(plan)
+        blocks.append(release_met_blocks(soundings, settings.grid.dx, settings.grid.dy))
     return "\n".join(blocks)
 
 

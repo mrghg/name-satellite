@@ -63,8 +63,14 @@ Done: `read_fields` (NAME text fields → array over source × lat × lon, keyed
 missing all-zero rows restored), `read_acrg_particle_file` (legacy particle fates), and legacy
 release-point met (`legacy.read_legacy_met_folder`). Tested on every day of January 2013. Stock
 NAME 8.7.1 fate files: `read_name_fate_file`, turned into the legacy particle table by
-`legacy_pipeline.legacy_particles_from_fate` (heights in m agl). Still to do: hourly fields, and
-release-point met for new runs (the legacy method needs a separate, unscalable NAME run).
+`legacy_pipeline.legacy_particles_from_fate` (heights in m agl). Still to do: hourly fields.
+
+Release-point met (`release_met.py`): the main run itself outputs, for each sounding, the met at
+its position and time (level-1 temperature, pressure and wind, boundary-layer depth, and surface
+pressure), instead of a separate legacy-style met run with one set of grids per release, which
+NAME's grid limits don't allow for busy days. `read_release_met` reads it, and
+`release_met_per_source` turns it into the per-release table the processing uses, with every
+release's pressure = min(requested, model surface pressure) (X9). Limit: 199 soundings per run.
 
 Particle fates (decision D13): every released particle ends in exactly one category. It either
 left through the north, east, south or west face, left through the top, or was still inside at the

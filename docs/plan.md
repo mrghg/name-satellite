@@ -66,8 +66,11 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   definitions, archive check. ☐ Runs spanning a changeover (currently refused).
 - Domains as configuration (grid, dispersion domain, Z max).
 - Time-integrated and hourly (HiTRes) output modes.
-- Release-point met without the per-release grid explosion (the legacy method fails with
-  "too many horizontal grids" for a normal day).
+- ☑ Release-point met from the main run (`release_met.py`; one location set and pressure array
+  per ≤86 soundings, one time grid and output file per sounding; up to 199 soundings per run).
+  Checked against the legacy met run on 1–2 Jan 2013: footprints and histograms bit-identical,
+  met within NAME's print precision; underground releases get the model surface pressure, as in
+  legacy (`dev/scripts/prepare_release_met_test.py`, `compare_release_met.py`).
 
 ## Phase 4: Running on LOTUS2
 - SLURM job generation (array per day), scratch handling, met restore, manifests, idempotent
