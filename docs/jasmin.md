@@ -81,6 +81,14 @@ above the number of requests (mixing ratio adds internal fields; we use 20,000 l
 Output: `Fields_grid1_C1_T1_<YYYYMMDDHHMM>.txt` (read with `name_output.read_fields`) and
 `Particles_C1.txt` (fate output, `name_output.read_name_fate_file`).
 
+**Two traps (benchmark, 2026-11-09):**
+1. *Never let several NAME jobs restore met into the same folder at once.* Three simultaneous
+   jobs sharing `met/UMG_Mk6PT` read files another job was still unzipping: NAME logged
+   "ERROR: in reading met data ... Particles and/or puffs are being lost" in `<input>Error.txt`.
+   Restore the met for a whole batch first (one job), then run.
+2. *NAME's exit code is 0 even when particles were lost.* Judge a run by its `<input>Error.txt`
+   (written next to the input file, with `<input>Log.txt` and `<input>Timing.txt`), not the exit code.
+
 ## Python
 Use the project's uv environment (`uv run ...`). The legacy code's tests run under
 `module load jaspy/3.12/v20250704` if you need to compare against it.
