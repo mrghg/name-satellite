@@ -86,6 +86,9 @@ class RunSettings:
     min_bl_depth_m: float = 40.0  # legacy; the NAME demo declarations use 100 m
     surface_layer_depth_m: float = 40.0  # footprint layer 0-40 m (legacy ZGrid1)
     fate_z_coord: str = "m agl"  # legacy; decision D14 will switch to "Pa"
+    # Add NAME's met columns (incl. Pressure, Pa) to each fate record: with fate_z_coord "m agl"
+    # this gives both the height (to find top exits) and the pressure (D14 bins).
+    fate_met: bool = False
     integration: str = "all_releases"  # or "legacy_2019" (X18)
     # Request met at the release points in this run (release_met.py). Legacy used a separate run.
     release_met: bool = True
@@ -267,12 +270,15 @@ def dispersion_options_block(settings):
 
 def particle_fate_block(settings):
     # One line per particle when it stops (left the domain, or reached the maximum travel time):
-    # source number, travel time and position (dev/notes/name-code.md).
+    # source number, travel time and position (dev/notes/name-code.md); with fate_met, also the
+    # met at that point (Output.F90 PPInfoColumnHeaders: U/V/W Ambient ... Pressure ...).
+    met = "Yes" if settings.fate_met else "No"
     return (
         "Output Requirements - Sets of Particle/Puff Information:\n"
         "Output Name, Particles?, Puffs?, Fate Info?, Met?, Mass?, Plume Rise?, "
         "Dispersion Scheme?, Puff Family?, H-Coord, Z-Coord, Sync?, Output Route\n"
-        f"Particles, Yes, No, Yes, No, No, No, No, No, Lat-Long, {settings.fate_z_coord}, Yes, D\n"
+        f"Particles, Yes, No, Yes, {met}, No, No, No, No, Lat-Long, {settings.fate_z_coord}, "
+        "Yes, D\n"
     )
 
 
