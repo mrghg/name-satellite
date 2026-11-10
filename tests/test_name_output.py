@@ -11,6 +11,7 @@ from name_satellite.name_output import (
     particle_counts,
     read_acrg_particle_file,
     read_fields,
+    read_fields_folder,
 )
 
 # ---------------------------------------------------------------------------------------------
@@ -78,6 +79,20 @@ def test_tiny_fields_values_and_metadata(tiny_fields_file):
     assert fields["units"].values.tolist() == ["ppm s", "ppm s"]
     assert fields["request"].values.tolist() == ["Req_1", "Req_2"]
     assert fields.attrs["Run name"] == "TINY"
+
+
+def test_fields_folder_combines_output_groups_by_source(tmp_path):
+    # A run split over two output groups (name_input.fields_output_group): sources 1-2 and 3-4.
+    (tmp_path / "Fields_grid1_C1_T1_201212021458.txt").write_text(TINY_FIELDS)
+    second = TINY_FIELDS.replace("SourceID_1, SourceID_2", "SourceID_3, SourceID_4")
+    (tmp_path / "Fields_grid1_2_C1_T1_201212021458.txt").write_text(second)
+    fields = read_fields_folder(tmp_path)
+    assert fields["source"].values.tolist() == [f"SourceID_{n}" for n in (1, 2, 3, 4)]
+    np.testing.assert_array_equal(fields.sel(source="SourceID_3"), fields.sel(source="SourceID_1"))
+    # The same source in two files is an error.
+    (tmp_path / "Fields_grid1_3_C1_T1_201212021458.txt").write_text(TINY_FIELDS)
+    with pytest.raises(ValueError, match="more than one fields file"):
+        read_fields_folder(tmp_path)
 
 
 def test_tiny_fields_wrong_coordinate_is_rejected(tmp_path):

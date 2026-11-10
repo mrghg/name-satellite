@@ -276,8 +276,32 @@ def particle_fate_block(settings):
     )
 
 
+# NAME writes each output group's fields side by side, one column per field request, and refuses
+# (only when it first writes, i.e. at the END of the run) a line longer than MaxOutputLineLength =
+# 60,000 characters. Each column takes OutputFieldColumnWidth + 1 = 27 characters and the 4
+# preliminary columns 4 × 25 (GlobalParameters.F90, Output.F90 ~14970). So one output group holds at
+# most (60,000 - 100) / 27 = 2,218 releases; we use 2,000.
+MAX_FIELD_COLUMNS_PER_GROUP = 2000
+FIELDS_GROUP = "Fields_grid1"
+
+
+def fields_output_group(index):
+    """Output group of the release at 0-based position ``index`` in the plan.
+
+    The first MAX_FIELD_COLUMNS_PER_GROUP releases go to "Fields_grid1" (the legacy name), the next
+    to "Fields_grid1_2", and so on. NAME writes one fields file per group
+    (``<group>_C1_T1_<time>.txt``); ``name_output.read_fields_folder`` reads them all.
+    """
+    group = index // MAX_FIELD_COLUMNS_PER_GROUP + 1
+    return FIELDS_GROUP if group == 1 else f"{FIELDS_GROUP}_{group}"
+
+
 def sources_and_requests_block(plan, settings, timing):
-    """One cuboid source and one integrated mixing-ratio field request per release."""
+    """One cuboid source and one integrated mixing-ratio field request per release.
+
+    Field requests are split into output groups of at most MAX_FIELD_COLUMNS_PER_GROUP releases
+    (see ``fields_output_group``).
+    """
     n_steps = timing["window_hours"] * 60 // settings.sync_minutes
     lines = [
         "Sources:",
@@ -301,12 +325,12 @@ def sources_and_requests_block(plan, settings, timing):
         "Av Time, # Av Times, Sync?, Output Route, Across, Separate File, Output Format, "
         "Output Group",
     ]
-    for release in plan.itertuples():
+    for index, release in enumerate(plan.itertuples()):
         number = release.source_name.removeprefix("SourceID_")
         lines.append(
             f"Req_H1Z1_{number}, Mixing Ratio, INERT-TRACER, {release.source_name}, HGrid1, "
             f"ZGrid1, TGridEndOfRun, No, Int, {timing['window_hours']}:00, {n_steps}, No, D, TZ, "
-            "T, IA, Fields_grid1"
+            f"T, IA, {fields_output_group(index)}"
         )
     return "\n".join(lines) + "\n"
 

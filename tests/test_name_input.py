@@ -157,6 +157,17 @@ def test_input_text_contents(plan_20130101):
     assert "TGridEndOfRun, 1, 01:00, 02/12/2012 14:58:50" in text
 
 
+def test_field_requests_split_into_output_groups():
+    from name_satellite.name_input import MAX_FIELD_COLUMNS_PER_GROUP, fields_output_group
+
+    # NAME refuses output lines over 60,000 characters: 4 preliminary columns of 25 characters
+    # plus 27 per field column (GlobalParameters.F90). Our groups must stay inside that.
+    assert 4 * 25 + MAX_FIELD_COLUMNS_PER_GROUP * 27 <= 60_000
+    assert fields_output_group(0) == "Fields_grid1"
+    assert fields_output_group(MAX_FIELD_COLUMNS_PER_GROUP - 1) == "Fields_grid1"
+    assert fields_output_group(MAX_FIELD_COLUMNS_PER_GROUP) == "Fields_grid1_2"
+
+
 def test_restore_met_files(tmp_path):
     import gzip
 

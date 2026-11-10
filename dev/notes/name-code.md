@@ -96,3 +96,14 @@ team, with a minimal case (one source, a few days, fate output on).
   `T Index, Location Index, T, Location`, one row per location, 7 significant figures.
 - A pressure (Pa) point below the model ground is reported at the ground: its "Pressure (Pa)" is
   exactly the surface pressure, and temperature etc. are the surface values.
+
+## Output line length: at most ~2,218 field columns per output group (2026-11-10)
+`GlobalParameters.F90`: `MaxOutputLineLength = 60000` (non-Compaq builds),
+`OutputPrelimColumnWidth = 24`, `OutputFieldColumnWidth = 26`. `Output.F90` ~14970 (and ~15100 for
+screen output) stops the run with "FATAL ERROR: too long an output line required for output group"
+when `nPrelimCols*(PCW+1) + nFieldCols*(FCW+1) > MaxOutputLineLength`: 4 × 25 + n × 27 ≤ 60,000 gives
+n ≤ 2,218 field columns per output group. The check runs only when the group is FIRST WRITTEN, which
+for time-integrated output is the end of the run: stage 2 batch job 66323622 (2,720 sources in one
+group) ran 8 h 21 min and then failed, with only the fate file written. `name_input` now splits the
+field requests into groups of ≤ 2,000 (`Fields_grid1`, `Fields_grid1_2`, ...). Lesson: test new
+run layouts with a 1-hour max-age run on the debug queue first.

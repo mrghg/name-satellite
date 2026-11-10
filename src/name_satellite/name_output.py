@@ -188,6 +188,38 @@ def read_fields(path):
 # ---------------------------------------------------------------------------------------------
 
 
+def read_fields_folder(folder):
+    """Read every footprint fields file of one NAME run and combine them by source.
+
+    A run with more releases than fit in one fields file writes several output groups
+    (``name_input.fields_output_group``): ``Fields_grid1_C1_T1_*.txt``,
+    ``Fields_grid1_2_C1_T1_*.txt``, ... Each is read with ``read_fields``; the result is ordered
+    by source number (SourceID_<n>).
+
+    Raises:
+        ValueError if no fields file is found, a source appears in more than one file, or the
+        files' grids differ.
+    """
+    files = sorted(Path(folder).glob("Fields_grid1*_C1_T1_*.txt*"))
+    if not files:
+        raise ValueError(f"No Fields_grid1 files in {folder}")
+    parts = [read_fields(path) for path in files]
+    for part in parts[1:]:
+        if not (
+            np.array_equal(part["lat"], parts[0]["lat"])
+            and np.array_equal(part["lon"], parts[0]["lon"])
+        ):
+            raise ValueError(f"Fields files in {folder} have different grids")
+    fields = xr.concat(parts, dim="source")
+    names = fields["source"].values.tolist()
+    if len(set(names)) != len(names):
+        raise ValueError(f"A source appears in more than one fields file in {folder}")
+    order = np.argsort([int(name.removeprefix("SourceID_")) for name in names])
+    fields = fields.isel(source=order)
+    fields.attrs = parts[0].attrs
+    return fields
+
+
 def read_acrg_particle_file(path):
     """Read a particle file written by the ACRG-modified NAME (legacy runs).
 

@@ -35,7 +35,7 @@ from name_satellite.legacy_pipeline import (
     process_legacy_inputs,
     write_legacy_fp_file,
 )
-from name_satellite.name_output import read_fields, read_name_fate_file
+from name_satellite.name_output import read_fields_folder, read_name_fate_file
 from name_satellite.refdata import ref_path
 from name_satellite.validation import histogram_difference, shape_difference, total_ratio
 
@@ -48,14 +48,15 @@ EARLY_MINUTES = 10
 
 
 def finished(run):
-    """True if the NAME run wrote its fields file and its error file is empty."""
+    """True if the NAME run wrote its fields file(s) and its error file is empty."""
     error = run / "inputError.txt"
     fields = list((run / "output").glob("Fields_grid1_C1_T1_*.txt"))
     return len(fields) == 1 and error.exists() and error.stat().st_size == 0
 
 
 def read_run(run):
-    fields = read_fields(next((run / "output").glob("Fields_grid1_C1_T1_*.txt")))
+    # A batched run may write several fields files (name_input.fields_output_group).
+    fields = read_fields_folder(run / "output")
     particles = legacy_particles_from_fate(
         *read_name_fate_file(run / "output" / "Particles_C1.txt")
     )

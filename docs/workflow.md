@@ -60,7 +60,10 @@ read once. `combine_release_plans` joins the daily plans, numbering the sources 
 (`integration="all_releases"`). NAME 8.7.1 allows at most 3,000 sources per run
 (`MaxFieldReqsPerReqInfo`), i.e. about a week of GOSAT-BRAZIL. After the run,
 `split_batched_output` cuts the fields and particles back into days that look exactly like
-one-day runs, and each day is processed as usual (step 6). Being validated in stage 2.
+one-day runs, and each day is processed as usual (step 6). Being validated in stage 2. Field requests are written in output groups of at most 2,000
+(`name_input.fields_output_group`), because NAME allows at most 60,000 characters per output line
+(about 2,218 releases per fields file); `name_output.read_fields_folder` reads all the files of a
+run.
 
 ## 4. Run NAME *(job scripts: `name_satellite/lotus.py`)*
 Each day is a SLURM job on LOTUS2. `lotus.write_job_script` writes the job with the NAME team's

@@ -20,6 +20,12 @@ processing.
 Limit: NAME 8.7.1 allows at most 3,000 field requests per output time
 (``MaxFieldReqsPerReqInfo``, GlobalParameters.F90). Every source has one time-integrated field
 request at the same time, so a batched run can hold at most 3,000 sources.
+
+Second limit: one output group (one fields file) can hold only about 2,218 sources, because NAME
+refuses output lines over 60,000 characters (MaxOutputLineLength). NAME checks this only when it
+first writes, i.e. at the END of the run: the first 7-day batch (2,720 sources) failed after 8 h.
+``name_input`` therefore splits the field requests into output groups of at most 2,000
+(``fields_output_group``), and ``name_output.read_fields_folder`` reads them back together.
 """
 
 import pandas as pd
