@@ -30,7 +30,9 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   legacy observation-file writer. Identical to `acrg.satellite.gosat` on v7.0 files for 1 and 7 Jan
   2013 (the legacy code cannot read v10/GOSAT-2). Findings: X22 (minute times), X23 (binning
   quirks), X24 (bad-pressure filter).
-- ☐ Decide how to give soundings unique keys in the observation file now that times repeat (X22).
+- ☑ Soundings keyed by sounding ID (D18): `observations.to_obs`, `sounding_id` in release plans.
+- ☐ Footprint files keyed by `sounding_id` too (improved processing), and the inversion's
+  observation reading switched to it (with the group).
 - ☐ Reference data for a durable test against legacy (v7.0 L2 files + legacy output, to `data/`).
 - Reader for University of Leicester OCPR proxy XCH4: GOSAT-1 v10.0 and GOSAT-2 v2.0 (first
   supported input), plus ESA CCI v7.x for legacy validation only.

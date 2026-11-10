@@ -1,4 +1,4 @@
-"""Step 1 of the workflow: satellite Level-2 file → table of soundings (→ legacy observation file).
+"""Step 1 of the workflow: satellite Level-2 file → table of soundings → observation file.
 
 Where this sits (see docs/workflow.md)
 --------------------------------------
@@ -15,7 +15,10 @@ What comes out
 ``read_l2`` returns an ``xarray.Dataset`` with dimensions (``sounding``, ``level``) and only the
 variables the pipeline uses, under explicit names and units:
 
-    exposure_id (str)        the sounding's ID, used to match records (never row order or time)
+    sounding_id (str)        the key of each entry, used to match records everywhere (never row
+                             order or time; decision D18): the exposure ID of the sounding, or for
+                             a legacy bin the exposure ID of its earliest sounding
+    exposure_id (str)        the exposure ID(s): one, or for a bin all of them joined by commas
     time                     measurement time (see the time-resolution note below)
     latitude, longitude      degrees
     xch4, xch4_uncertainty   ppb
@@ -30,13 +33,17 @@ Filters (``quality_mask``, ``bad_pressure_mask``, ``mode_mask``, ``latlon_mask``
 masks; apply them with ``select``. ``legacy_bin`` averages soundings within lat/lon bins exactly as
 the legacy ``acrg.satellite.gosat.binned_mean``.
 
+Two writers: ``write_obs_file`` (our observation file, keyed by ``sounding_id``) and
+``write_legacy_obs_file`` (the legacy layout keyed by time, for comparisons with legacy files; it
+refuses repeated times).
+
 Time resolution (docs/deviations.md X22)
 ----------------------------------------
 GOSAT-1 v10.0 and GOSAT-2 v2.0 store the measurement time rounded DOWN to the whole minute (checked
 against v7.0 for 2013-01-01: every one of the 2,024 common soundings equals the v7.0 time floored).
 So many soundings share a time, and times are up to 59 s early. ``read_l2`` records this in the
 ``time_resolution`` attribute. The legacy preprocessing cannot handle these files at all (its
-binning needs unique times).
+binning needs unique times). Our files are keyed by sounding ID instead (D18).
 
 Legacy source: ``acrg/satellite/gosat.py`` (filters ~103-270, binning ~425-886,
 ``gosat_process_file`` ~1191) and ``common.py`` (``add_coords``, ``output``).
@@ -125,6 +132,7 @@ def read_l2(path):
             data[name] = ("sounding", values)
     table = xr.Dataset(data)
     table["exposure_id"] = ("sounding", [x.decode().strip() for x in raw["exposure_id"].values])
+    table["sounding_id"] = table["exposure_id"].copy()  # D18: the sounding's ID is its key
 
     if len(set(table["exposure_id"].values)) != table.sizes["sounding"]:
         raise ValueError(f"{path.name}: exposure IDs are not unique")
@@ -261,7 +269,8 @@ def legacy_bin(table, lat_bounds, lon_bounds, bin_size, footprint_km=10.5):
       * the release box is the footprint size plus the spread of the positions:
         dlat = footprint + (max - min latitude), dlon = footprint at the mean latitude
         + (max - min longitude);
-      * exposure IDs are joined with commas.
+      * exposure IDs are joined with commas; the bin's ``sounding_id`` is the exposure ID of its
+        earliest sounding (D18, not legacy).
     The legacy code also adds random microsecond offsets to duplicate times (X12); this does not.
 
     Args:
@@ -295,9 +304,13 @@ def legacy_bin(table, lat_bounds, lon_bounds, bin_size, footprint_km=10.5):
 def _bin_one(members, footprint_km):
     """Legacy mean of one bin's soundings (see ``legacy_bin``)."""
     out = {}
+    # D18: a bin is identified by the exposure ID of its earliest sounding (ties: smallest ID).
+    earliest = np.lexsort((members["exposure_id"].values, members["time"].values))[0]
     for name in members.data_vars:
         values = members[name]
-        if name == "exposure_id":
+        if name == "sounding_id":
+            out[name] = str(members["exposure_id"].values[earliest])
+        elif name == "exposure_id":
             out[name] = ",".join(values.values)
         elif name == "time":
             times = np.sort(values.values)
@@ -393,3 +406,60 @@ def write_legacy_obs_file(table, path):
     The legacy file name is ``gosat-fts_gosat_YYYYMMDD_ch4-column.nc``.
     """
     to_legacy_obs(table).to_netcdf(path)
+
+
+# ---------------------------------------------------------------------------------------------
+# Our observation file: keyed by sounding ID (decision D18)
+# ---------------------------------------------------------------------------------------------
+
+
+def to_obs(table):
+    """The sounding table as our observation file (one day, one satellite product: D17).
+
+    Like the legacy layout (``to_legacy_obs``: same variable names and units, ``lev`` 0-19, and
+    ``exposure_id`` as (sounding, id) padded with "nan"), but the soundings are indexed by
+    ``sounding_id`` instead of time, and ``time`` is an ordinary variable. GOSAT-1 v10 and GOSAT-2
+    times repeat (whole minutes, X22), so time cannot be the key. Binned soundings also carry
+    ``dlat``/``dlon`` (release box, degrees) and ``n_soundings``.
+
+    Raises:
+        ValueError if a sounding ID is repeated.
+    """
+    ids = table["sounding_id"].values
+    if len(set(ids)) != len(ids):
+        raise ValueError("Repeated sounding IDs: they must identify the soundings uniquely")
+    dims = "sounding_id"
+    data = {"time": (dims, table["time"].values)}
+    for name, legacy_name in LEGACY_OBS_NAMES.items():
+        if name in PROFILE_VARIABLES:
+            data[legacy_name] = ((dims, "lev"), table[name].values)
+        else:
+            data[legacy_name] = (dims, table[name].values)
+    for name in ("dlat", "dlon", "n_soundings"):
+        if name in table:
+            data[name] = (dims, table[name].values)
+    exposures = [value.split(",") for value in table["exposure_id"].values]
+    width = max(len(i) for i in exposures)
+    padded = np.array([i + ["nan"] * (width - len(i)) for i in exposures], dtype="S")
+    data["exposure_id"] = ((dims, "id"), padded)
+    coords = {
+        dims: np.array(ids, dtype=str),
+        "lev": np.arange(N_LEVELS),
+        "id": np.arange(1, width + 1),
+    }
+    obs = xr.Dataset(data, coords=coords, attrs=dict(table.attrs))
+    for name, legacy_name in LEGACY_OBS_NAMES.items():
+        obs[legacy_name].attrs["units"] = _UNITS[name]
+    for name in ("dlat", "dlon"):
+        if name in obs:
+            obs[name].attrs["units"] = "degrees"
+            obs[name].attrs["long_name"] = f"release box full width ({name[1:]}itude)"
+    obs["sounding_id"].attrs["long_name"] = (
+        "sounding ID: exposure ID of the sounding (or of the earliest sounding of a bin)"
+    )
+    return obs
+
+
+def write_obs_file(table, path):
+    """Write one day's soundings as our observation file (``to_obs`` layout)."""
+    to_obs(table).to_netcdf(path)

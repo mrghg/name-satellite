@@ -24,9 +24,11 @@ flags, and per-level pressure (hPa, surface first), pressure weight, averaging k
    surface), `mode_mask` (land or glint), `latlon_mask` (lower bound included, upper excluded).
 3. Optional `legacy_bin` averages the soundings in each lat/lon bin as legacy did (quirks: X23) and
    adds `dlat`/`dlon` (footprint + spread) for the release boxes.
-4. `to_legacy_obs` / `write_legacy_obs_file` give the legacy observation file that the inversion
-   reads and `releases.build_release_plan` takes. It is indexed by time, so it refuses duplicate
-   times (X22).
+4. `to_obs` / `write_obs_file` give our observation file, indexed by `sounding_id` (D18), with the
+   same variable names as the legacy file plus `time`, and `dlat`/`dlon`/`n_soundings` for bins.
+   `releases.build_release_plan` takes it and carries `sounding_id` into every release.
+   `to_legacy_obs` / `write_legacy_obs_file` give the legacy time-indexed layout, for comparisons
+   with legacy files only; they refuse repeated times (X22).
 
 Checked against the legacy `acrg.satellite.gosat` on ESA CCI v7.0 files for 1 and 7 Jan 2013
 (`dev/scripts/run_legacy_gosat.py`, `compare_observations_with_legacy.py`): same soundings, values

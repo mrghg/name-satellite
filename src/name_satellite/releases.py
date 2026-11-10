@@ -146,8 +146,9 @@ def build_release_plan(
     """One row per NAME release (source) for one day of soundings.
 
     Args:
-        obs: observation Dataset in the legacy format (dims ``time``, ``lev``; variables ``lon``,
-            ``lat``, ``pressure_levels`` in hPa), one entry per sounding, in time order.
+        obs: observation Dataset, one entry per sounding, in time order: our format
+            (``observations.to_obs``, dim ``sounding_id``) or the legacy one (dim ``time``). Uses
+            ``time``, ``lon``, ``lat`` and ``pressure_levels`` (hPa).
         n_levels: retrieval levels released per sounding, from the surface (legacy 17).
         release_seconds: length of each release (legacy 60 s).
         level_split, footprint_diameter_km: see ``particles_per_second``, ``footprint_box_degrees``.
@@ -159,6 +160,7 @@ def build_release_plan(
         DataFrame with columns
           * ``source_name``: "SourceID_<n>", n = 1, 2, ... in sounding order, levels within each;
           * ``point_number``, ``level_number``: 1-based sounding and level numbers;
+          * ``sounding_id``: the sounding's ID (D18), only if ``obs`` has one;
           * ``release_end``: the sounding time truncated to the whole second (legacy, UTC). In
             NAME's backwards run this is the source's "Stop Time";
           * ``release_start``: ``release_end`` + ``release_seconds`` (NAME's "Start Time");
@@ -168,6 +170,7 @@ def build_release_plan(
     """
     times = pd.to_datetime(obs["time"].values).floor("s")
     n_points = len(times)
+    sounding_ids = obs["sounding_id"].values if "sounding_id" in obs.variables else None
     rows = []
     for p in range(n_points):
         surface = None if surface_pressure_hpa is None else surface_pressure_hpa[p]
@@ -179,20 +182,21 @@ def build_release_plan(
         else:
             dlon, dlat = box_degrees[0][p], box_degrees[1][p]
         for level in range(1, n_levels + 1):
-            rows.append(
-                {
-                    "source_name": f"SourceID_{p * n_levels + level}",
-                    "point_number": p + 1,
-                    "level_number": level,
-                    "release_end": times[p],
-                    "release_start": times[p] + pd.Timedelta(seconds=release_seconds),
-                    "lon": lon,
-                    "lat": lat,
-                    "dlon": float(dlon),
-                    "dlat": float(dlat),
-                    "z_pa": centre_pa[level - 1],
-                    "dz_pa": thickness_pa[level - 1],
-                    "particles_per_second": particles_per_second(level, level_split),
-                }
-            )
+            row = {
+                "source_name": f"SourceID_{p * n_levels + level}",
+                "point_number": p + 1,
+                "level_number": level,
+                "release_end": times[p],
+                "release_start": times[p] + pd.Timedelta(seconds=release_seconds),
+                "lon": lon,
+                "lat": lat,
+                "dlon": float(dlon),
+                "dlat": float(dlat),
+                "z_pa": centre_pa[level - 1],
+                "dz_pa": thickness_pa[level - 1],
+                "particles_per_second": particles_per_second(level, level_split),
+            }
+            if sounding_ids is not None:
+                row["sounding_id"] = str(sounding_ids[p])
+            rows.append(row)
     return pd.DataFrame(rows)

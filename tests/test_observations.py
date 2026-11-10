@@ -170,3 +170,50 @@ def test_matches_legacy_preprocessing(refdata, day):
     legacy_binned = xr.open_dataset(refdata(f"cci_v70_legacy_binned_{day}"))
     assert_same_soundings(binned, legacy_binned, extra=("dlat", "dlon"))
     assert binned.sizes["sounding"] == {"20130101": 25, "20130107": 64}[day]
+
+
+# ---------------------------------------------------------------------------------------------
+# Sounding IDs (decision D18)
+# ---------------------------------------------------------------------------------------------
+
+
+def test_sounding_ids_and_obs_file_with_repeated_times(tmp_path):
+    from name_satellite.observations import to_obs, write_obs_file
+    from name_satellite.releases import build_release_plan
+
+    # Three soundings with the SAME (whole-minute) time; 0 and 1 share a bin.
+    path = write_l2(
+        tmp_path / "UoL-GHG-L2-CH4-GOSAT-OCPR-20130101-fv10.0.nc",
+        [-10.00, -10.05, -12.0],
+        [-50.00, -49.90, -52.0],
+        ["2013-01-01 15:00"] * 3,
+    )
+    table = read_l2(path)
+    assert list(table["sounding_id"].values) == list(table["exposure_id"].values)
+
+    binned = legacy_bin(table, (-13.0, 0.0), (-55.0, -45.0), (0.234, 0.352))
+    ids = sorted(binned["sounding_id"].values.tolist())
+    # The bin of soundings 0 and 1 takes the ID of its earliest (tie: smallest) exposure.
+    assert ids == ["2013010100000000000000", "2013010100000000000002"]
+
+    obs = to_obs(binned)
+    assert obs["time"].dims == ("sounding_id",)
+    assert obs["exposure_id"].dims == ("sounding_id", "id")
+    assert {"dlat", "dlon", "n_soundings"} <= set(obs.data_vars)
+    write_obs_file(binned, tmp_path / "obs.nc")
+    reread = xr.open_dataset(tmp_path / "obs.nc")
+    assert sorted(reread["sounding_id"].values.tolist()) == ids
+
+    plan = build_release_plan(reread, n_levels=2)
+    assert plan["sounding_id"].tolist() == [i for i in reread["sounding_id"].values for _ in (1, 2)]
+
+
+def test_obs_refuses_repeated_sounding_ids(tmp_path):
+    from name_satellite.observations import to_obs
+
+    path = write_l2(tmp_path / "UoL-GHG-L2-CH4-GOSAT-OCPR-20130101-fv10.0.nc", [-10, -11],
+                    [-50, -51], ["2013-01-01 15:00", "2013-01-01 15:01"])  # fmt: skip
+    table = read_l2(path)
+    table["sounding_id"] = ("sounding", ["same", "same"])
+    with pytest.raises(ValueError, match="Repeated sounding IDs"):
+        to_obs(table)
