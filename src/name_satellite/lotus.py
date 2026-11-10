@@ -58,8 +58,38 @@ export LD_LIBRARY_PATH=${{LD_LIBRARY_PATH}}:{shumlib}  # needed to read UM met f
 cd {work}
 echo "Started $(date) on $(hostname) with {threads} thread(s)"
 time mpirun -np 1 {name_dir}/Executables_Linux/nameiii_64bit_par.exe {input_file}
-echo "NAME exit code $?; finished $(date)"
+status=$?
+echo "NAME exit code $status; finished $(date)"
+# NAME can exit 0 although it reported errors (e.g. lost particles): judge the run by its error
+# file too (docs/jasmin.md). A non-zero exit makes dependent jobs (afterok) not start.
+error_file={error_file}
+if [ -s "$error_file" ]; then
+    echo "Error file $error_file is not empty:"; cat "$error_file"
+    [ $status -eq 0 ] && status=1
+fi
+exit $status
 """
+
+# Restoring (copying and unzipping) the met a run needs from the NAME met archive, as its own job:
+# NAME jobs must not restore into a shared met folder at the same time (dev/notes, benchmark).
+MET_RESTORE_TEMPLATE = """\
+#!/bin/bash
+#SBATCH --job-name={job_name}
+#SBATCH --account={account}
+#SBATCH --partition=standard
+#SBATCH --qos=standard
+#SBATCH --time={time}
+#SBATCH --mem=4G
+#SBATCH --cpus-per-task=1
+#SBATCH --output={work}/restore-%j.out
+#SBATCH --error={work}/restore-%j.err
+
+cd {repo}
+time ~/.local/bin/uv run --no-sync python -m name_satellite.met_restore \\
+    {version} {start} {end} {folder}
+"""
+
+REPO = Path(__file__).resolve().parents[2]
 
 
 def write_job_script(
@@ -105,6 +135,41 @@ def write_job_script(
         shumlib=SHUMLIB,
         name_dir=NAME_DIR,
         input_file=input_file,
+        # NAME names its error file after the input file: input.txt -> inputError.txt
+        error_file=Path(work_dir) / (Path(input_file).stem + "Error.txt"),
+    )
+    path = Path(path)
+    path.write_text(text)
+    return path
+
+
+def write_met_restore_job(
+    path, work_dir, met_version_name, start, end, met_folder, time="08:00:00", account="acrg"
+):
+    """Write a Slurm job that restores the met for a period into a met folder.
+
+    Args:
+        path: job script to write.
+        work_dir: folder for the job's logs.
+        met_version_name: e.g. "UMG_Mk6PT" (``met.MET_VERSIONS``).
+        start, end: period of met needed (ISO strings, e.g. "2012-12-02T14:58").
+        met_folder: where the met files go (shared by the runs that use it).
+        time: Slurm time limit.
+        account: Slurm account (D15).
+
+    Returns:
+        The path written.
+    """
+    text = MET_RESTORE_TEMPLATE.format(
+        job_name=f"restore_{met_version_name}",
+        account=account,
+        time=time,
+        work=work_dir,
+        repo=REPO,
+        version=met_version_name,
+        start=start,
+        end=end,
+        folder=met_folder,
     )
     path = Path(path)
     path.write_text(text)

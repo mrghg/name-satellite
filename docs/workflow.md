@@ -10,6 +10,15 @@ from here to the code. Each module's docstring describes the same step in more d
          footprint netCDF ◄─ 6. Combine into column ◄─ 5. Read NAME output ◄─ 4. Run NAME (LOTUS2)
 ```
 
+## Preparing runs from current L2 data (`name_satellite/prepare.py`)
+`python -m name_satellite.prepare PRODUCT SITE YYYY-MM WORK [--test]` chains steps 1-4 for a
+month: for each day it downloads the L2 file (`l2_files.py`, CEDA over HTTPS; days without a file
+are skipped), selects the good soundings in the site's box (`domains.py`), writes the observation
+file (keyed by sounding ID), plans the releases (bottom layer from the retrieval's surface
+pressure), and writes the NAME input and job. It also writes one met-restore job for the month and
+`submit.sh`, which runs every day's job after the restore (`afterok`). Job scripts exit non-zero if
+NAME fails or writes to its error file. `--test` limits travel to 1 hour on the debug queue.
+
 ## 1. Read soundings *(first version: `name_satellite/observations.py`)*
 **In:** one day's University of Leicester OCPR proxy XCH4 file: GOSAT-1 v10.0 or GOSAT-2 v2.0 (ESA
 CCI v7.x for legacy validation). **Out:** a table with one entry per sounding (dims `sounding`,

@@ -89,6 +89,11 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   legacy (`dev/scripts/prepare_release_met_test.py`, `compare_release_met.py`).
 
 ## Phase 4: Running on LOTUS2
+- ◐ `prepare.py` (2026-11-10): a month of runs from current L2 data (download, select, observation
+  file, release plan, NAME input, jobs, met restore, `submit.sh`); `domains.py`, `l2_files.py`.
+  Tested: January 2013 GOSAT-1 v10 prepared (30 days with data, 1,285 soundings, 21,845 releases: 1.9 times
+  legacy: no binning and more good v10 soundings); 1 Jan run with 1-h travel read back and combined
+  into 46 column footprints. Still to do: processing of new runs into the agreed file format.
 - SLURM job generation (array per day), scratch handling, met restore, manifests, idempotent
   restarts, captured logs, and failure detection that parses NAME's logs.
 
