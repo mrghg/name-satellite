@@ -45,8 +45,12 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☑ Release plan table (`releases.build_release_plan`): one row per release with sounding ID,
   level, position and box, pressure centre and thickness, times and particle rate. ☐ Optional
   per-release weight (deferred option (a)).
-- ◐ Bottom layer: new runs (`prepare.py`) use the retrieval's surface pressure; validation runs use
-  the legacy NAME surface pressure (D16). Decision pending (open question 1, X9).
+- ☑ Bottom layer (D19): new runs scale every level to the model surface pressure, from a met-only
+  NAME run before the main run (`surface_pressure.py`, chained by `prepare.py`); validation runs
+  use the legacy NAME surface pressure (D16). ◐ Effect against the retrieval's own levels on
+  1 Jan 2013: 30-day runs submitted 2026-11-10 (jobs 66679485/6/8,
+  `dev/scripts/prepare_d19_comparison.py`, `compare_d19.py`). 1-h test (jobs 66678616/8): the
+  main run's surface pressure equals the pre-run's exactly; no level-1 centre below ground.
 - ☐ Pressure-based release ceiling (D5, X10): any ceiling below the NAME domain top; validate
   ceiling < domain Z max < met top (about 29 km). Linked to which levels NAME models (open
   question 9).

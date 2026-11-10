@@ -142,3 +142,38 @@ def test_golden_conc2018_all_january(refdata):
         obs_file = run / "Observations" / f"gosat-fts_gosat_{date}_ch4-column.nc"
         n_checked += len(check_day_against_legacy(input_file, obs_file))
     assert n_checked == 678
+
+
+def test_scaling_to_model_surface_keeps_each_layers_share_of_the_column():
+    # D19: every level scaled by model / retrieval surface pressure.
+    from name_satellite.releases import layer_boundaries_hpa, scale_to_model_surface
+
+    levels = np.array([960.0, 900.0, 800.0, 600.0, 300.0, 100.0])
+    scaled = scale_to_model_surface(levels, 970.0)
+    assert scaled[0] == pytest.approx(970.0)
+    original = layer_boundaries_hpa(levels)
+    boundaries = layer_boundaries_hpa(scaled)
+    assert boundaries[0] == pytest.approx(970.0)  # layer 0 starts at the model ground
+    share = -np.diff(original) / original[0]
+    assert -np.diff(boundaries) / boundaries[0] == pytest.approx(share)
+    with pytest.raises(ValueError, match="> 0"):
+        scale_to_model_surface(levels, 0.0)
+
+
+def test_plan_scaled_to_model_surface():
+    from name_satellite.releases import build_release_plan
+
+    obs = xr.Dataset(
+        {
+            "time": ("t", pd.to_datetime(["2013-01-01 15:00:00", "2013-01-01 15:01:00"])),
+            "lon": ("t", [-50.0, -51.0]),
+            "lat": ("t", [-10.0, -11.0]),
+            "pressure_levels": (("t", "lev"), np.tile(np.linspace(1000.0, 50.0, 20), (2, 1))),
+        }
+    )
+    plan = build_release_plan(obs, model_surface_pressure_hpa=np.array([1010.0, 990.0]))
+    level_1 = plan[plan["level_number"] == 1]
+    assert (level_1["z_pa"] + level_1["dz_pa"] / 2).tolist() == pytest.approx([101_000, 99_000])
+    with pytest.raises(ValueError, match="legacy"):
+        build_release_plan(obs, surface_pressure_hpa=[1.0, 1.0],
+                           model_surface_pressure_hpa=[1.0, 1.0])  # fmt: skip

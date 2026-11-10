@@ -23,6 +23,7 @@ with Matt Rigby unless noted.
 | D16 | 2026-11-09 | For the NAME 8.7.1 validation runs against the legacy 2013 footprints, the bottom release layer uses the **legacy NAME surface pressure** (recovered from the legacy input files with `legacy.legacy_surface_pressure_hpa`), not the retrieval's own (X9 stays open for production runs). | Like-for-like comparison: differences then come only from NAME version/met handling, the integration-window fix (X18) and Monte Carlo noise. |
 | D17 | 2026-11-10 | **GOSAT-1 and GOSAT-2 are separate observation streams.** Both UoL products are used (GOSAT-1 v10.0, 2009-04 to 2025-12; GOSAT-2 v2.0, 2019-02 to 2025-12), but never merged: separate observation files (and NAME runs/footprint files) per satellite, each recording its product and version. | Different instruments and different bias corrections (GOSAT-1: flat 16.655 ppb; GOSAT-2: 18.044 + 0.26 × SZA ppb), so the inversion can give each its own bias/offset. Matt, 2026-11-10. |
 | D18 | 2026-11-10 | **Soundings are identified by their sounding ID** (the L2 exposure ID; for a legacy bin, the exposure ID of its earliest sounding, with all its exposure IDs kept in `exposure_id`). Our observation files are indexed by `sounding_id`, with time as an ordinary variable (`observations.to_obs`); release plans carry `sounding_id`. The legacy time-indexed layout is kept only for comparisons with legacy files. | GOSAT-1 v10 and GOSAT-2 v2 times are whole minutes, so times repeat (X22); time cannot be a key. Matt, 2026-11-10. Footprint files and the inversion's observation reading will need to use the same key. |
+| D19 | 2026-11-10 | **Release layers follow the model's terrain.** For new runs, each sounding's retrieval levels are all multiplied by model / retrieval surface pressure before the layers are built (`releases.scale_to_model_surface`), so the bottom layer starts at the model ground and every layer keeps its fraction of the column. The model surface pressure comes from a short met-only NAME run per day before the main run (`surface_pressure.py`; `prepare.py` chains restore → surface pressure → main). The retrieval's pressure weights, averaging kernel and prior are used unchanged. | The pressure weights belong to the retrieval and define its column; the footprints only supply the model mole fraction for each retrieval layer, and footprint sensitivity depends on height above the ground. With the retrieval's own levels the bottom layer (median 28 hPa thick) usually starts above the model ground (model median 10 hPa higher, 1 Jan 2013) and sometimes below it. Replacing only the bottom boundary (legacy, X9) would stretch the bottom layer by a third or more against its weight. Every level moves by the same fraction of its pressure: median 1%, up to 3.5% (1 Jan 2013). Matt, 2026-11-10. Resolves open question 1. |
 
 ## Deferred options (evaluate after baseline validation)
 - **(a) Weighted release:** one column field per sounding using Source Groups, with particles
@@ -34,13 +35,6 @@ with Matt Rigby unless noted.
 ## Open questions
 Numbers are kept when a question is resolved (see the list below), so references stay valid.
 
-1. **Bottom-layer surface pressure (X9).** Legacy used a separate NAME "SurfacePressure" run
-   (`use_name_pressure=True`); its values differ from GOSAT p0 by −15 to +37 hPa. New runs
-   (`prepare.py`) use the retrieval's p0, the only option for new data. First check (GOSAT-1 v10,
-   1 Jan 2013, 46 soundings): the model surface pressure (release-point met) is a median 10.2 hPa
-   higher than the retrieval's (−7.3 to +33.4), so the legacy offsets look like genuine model vs
-   retrieval differences; no bottom release starts below the model ground. Proposal: adopt the
-   retrieval's p0 and record the model's alongside.
 3. **ACRG NAME code modification.** Stock 8.7.1 fate output suffices for footprints, but not for
    D13: it has no particle index, and duplicate records (X20) cannot be removed reliably. Agreed
    (2026-11-10): build a patched copy that adds the per-source particle index and fate code to the
@@ -68,6 +62,9 @@ Numbers are kept when a question is resolved (see the list below), so references
     per-level footprints, who updates the inversion code).
 
 ## Resolved questions
+1. **Bottom-layer surface pressure (X9):** resolved 2026-11-10 by D19 (all levels scaled to the
+   model surface pressure, from a met-only NAME run before the main run; no change to the
+   pressure weights).
 2. **Release-point met** (the per-release met-extraction run exceeded NAME's grid limits):
    resolved 2026-11-09 by taking the met from the main run (`release_met.py`, X21).
 4. **LOTUS2 account/QoS, scratch, outputs, GitHub:** resolved 2026-11-09 (D15, `docs/jasmin.md`).

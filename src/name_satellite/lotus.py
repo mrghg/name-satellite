@@ -54,7 +54,7 @@ export OMP_NUM_THREADS={threads}  # must equal --cpus-per-task and the input fil
 export OMP_PROC_BIND=close
 export OMP_STACKSIZE='32m'
 export LD_LIBRARY_PATH=${{LD_LIBRARY_PATH}}:{shumlib}  # needed to read UM met files
-
+{before_name}
 cd {work}
 echo "Started $(date) on $(hostname) with {threads} thread(s)"
 time mpirun -np 1 {name_dir}/Executables_Linux/nameiii_64bit_par.exe {input_file}
@@ -102,6 +102,7 @@ def write_job_script(
     memory="16G",
     job_name="name_satellite",
     account="acrg",
+    before_name="",
 ):
     """Write a Slurm job script that runs NAME 8.7.1 on one input file.
 
@@ -113,6 +114,8 @@ def write_job_script(
         qos: LOTUS2 QoS; the partition follows from it. Must allow ``threads`` CPUs.
         time, memory: Slurm limits, e.g. "02:00:00", "16G".
         account: Slurm account (decision D15: acrg).
+        before_name: shell lines to run before NAME (e.g. writing the input file,
+            ``prepare.write_main_input``); the job stops with an error if they fail.
 
     Returns:
         The path written.
@@ -135,6 +138,7 @@ def write_job_script(
         shumlib=SHUMLIB,
         name_dir=NAME_DIR,
         input_file=input_file,
+        before_name=f"\n{before_name.rstrip()}\n" if before_name else "",
         # NAME names its error file after the input file: input.txt -> inputError.txt
         error_file=Path(work_dir) / (Path(input_file).stem + "Error.txt"),
     )

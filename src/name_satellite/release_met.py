@@ -11,7 +11,9 @@ For each sounding, the processing needs:
 
 * the model's surface pressure at the sounding: a release layer centred below it is partly
   underground (deviation X9), and NAME then reports a pressure for the release other than the
-  one requested, which the legacy column combination used to pick levels;
+  one requested, which the legacy column combination used to pick levels. (New runs get it
+  beforehand too, from the met-only run in ``surface_pressure.py``, which writes and reads its
+  requests with this module; the two should agree, D19);
 * temperature, pressure, wind speed and direction at the lowest release, and the boundary-layer
   depth: stored in the footprint file (legacy kept those of the lowest release, level 1).
 
@@ -67,12 +69,15 @@ def release_met_soundings(plan):
 
     Returns:
         DataFrame with ``sounding`` (a unique label, e.g. "S0001", in plan order), ``day`` (if in
-        the plan), ``point_number``, ``lon``, ``lat`` (degrees), ``time`` (sounding time,
-        truncated to the second) and ``z_pa`` (centre of the level-1 release layer, Pa), plus
-        ``group`` (1-based) assigning soundings to output groups of at most MAX_PER_GROUP.
+        the plan), ``point_number``, ``sounding_id`` (if in the plan), ``lon``, ``lat``
+        (degrees), ``time`` (sounding time, truncated to the second) and ``z_pa`` (centre of
+        the level-1 release layer, Pa), plus ``group`` (1-based) assigning soundings to output
+        groups of at most MAX_PER_GROUP.
     """
     lowest = plan[plan["level_number"] == 1].reset_index(drop=True)
     columns = ["day", "point_number"] if "day" in lowest else ["point_number"]
+    if "sounding_id" in lowest:
+        columns.append("sounding_id")
     soundings = lowest[columns].copy()
     soundings.insert(0, "sounding", [f"S{i:04d}" for i in range(1, len(lowest) + 1)])
     soundings["lon"] = lowest["lon"]
@@ -87,16 +92,19 @@ def release_met_soundings(plan):
     return soundings
 
 
-def release_met_blocks(soundings, dx, dy):
+def release_met_blocks(soundings, dx, dy, quantities=QUANTITIES):
     """NAME input blocks requesting met at each sounding (text to add to the input file).
 
     Args:
         soundings: from ``release_met_soundings``.
         dx, dy: nominal grid spacing for the location grids (degrees). NAME requires one for
             grids built from locations; it doesn't affect point met.
+        quantities: which met to request (default QUANTITIES; the met-only surface-pressure run
+            asks for surface pressure only, ``surface_pressure.py``).
 
     Output: one file per sounding, output group ``ReleaseMet_<sounding>``.
     """
+    at_release = any(level == "release" for _, _, level in quantities)
     lines = [
         "! Met at the release points (name_satellite.release_met)",
         "Vertical Grids:",
@@ -108,22 +116,27 @@ def release_met_blocks(soundings, dx, dy):
         g = f"RM{group}"
         lines += [f"Locations: ReleasePoints_{group}", "Name, H-Coord, X, Y"]
         lines += [f"{s.sounding}, Lat-Long, {s.lon!r}, {s.lat!r}" for s in members.itertuples()]
-        # A NAME grid is a set of values: sort the pressures (surface first), drop repeats.
-        pressures = sorted(set(members["z_pa"]), reverse=True)
         lines += [
             "",
             "Horizontal Grids:",
             "Name, dX, dY, Set of Locations",
             f"HGrid_{g}, {dx}, {dy}, ReleasePoints_{group}",
             "",
-            f"Array: ZArray_{g}",
-            "Array Values",
-            *[repr(p) for p in pressures],
-            "",
-            "Vertical Grids:",
-            "Name, Z-Coord, Z-Array",
-            f"ZGrid_{g}, Pa, ZArray_{g}",
-            "",
+        ]
+        if at_release:
+            # A NAME grid is a set of values: sort the pressures (surface first), drop repeats.
+            pressures = sorted(set(members["z_pa"]), reverse=True)
+            lines += [
+                f"Array: ZArray_{g}",
+                "Array Values",
+                *[repr(p) for p in pressures],
+                "",
+                "Vertical Grids:",
+                "Name, Z-Coord, Z-Array",
+                f"ZGrid_{g}, Pa, ZArray_{g}",
+                "",
+            ]
+        lines += [
             "Temporal Grids:",
             "Name, nT, dT, T0",
             *[
@@ -137,7 +150,7 @@ def release_met_blocks(soundings, dx, dy):
             "Output Format, Output Group",
         ]
         for s in members.itertuples():
-            for suffix, quantity, level in QUANTITIES:
+            for suffix, quantity, level in quantities:
                 z_grid = f"ZGrid_{g}" if level == "release" else "ZGrid_Ground"
                 # Wind direction needs a horizontal coordinate system to be measured in.
                 h_coord = "Lat-Long" if "Direction" in quantity else ""
@@ -209,17 +222,19 @@ def _printed_pressure(z_label):
     return float(number)
 
 
-def read_release_met(output_folder, soundings):
+def read_release_met(output_folder, soundings, quantities=QUANTITIES):
     """Met at each sounding's own position, level-1 pressure and time.
 
     Args:
         output_folder: the NAME run's output folder (files ``ReleaseMet_<sounding>_C1.txt``).
         soundings: the table from ``release_met_soundings`` used to write the run.
+        quantities: the quantities the run requested (as for ``release_met_blocks``).
 
     Returns:
         ``soundings`` with the columns in OUTPUT_NAMES added: temperature (K), pressure (Pa) at
         the level-1 release, wind speed (m/s) and direction (degrees), boundary-layer depth (m)
-        and surface pressure (Pa). NAME prints 7 significant figures.
+        and surface pressure (Pa), or those of ``quantities``. NAME prints 7 significant
+        figures.
 
     Raises:
         ValueError if a file, request or level is missing, or the level is ambiguous.
@@ -229,7 +244,8 @@ def read_release_met(output_folder, soundings):
     for s in soundings.itertuples():
         columns, values = read_release_met_file(output_folder / f"ReleaseMet_{s.sounding}_C1.txt")
         row = {}
-        for suffix, name in OUTPUT_NAMES.items():
+        for suffix, _, _ in quantities:
+            name = OUTPUT_NAMES[suffix]
             of_request = columns.index[columns["request"] == f"{s.sounding}_{suffix}"]
             if len(of_request) == 0:
                 raise ValueError(f"{s.sounding}: no {s.sounding}_{suffix} columns")

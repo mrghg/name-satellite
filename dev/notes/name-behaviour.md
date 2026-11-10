@@ -48,6 +48,10 @@ repository.
   one row per location, 7 significant figures.
 - A pressure (Pa) point below the model ground is reported at the ground: its "Pressure (Pa)" is
   exactly the surface pressure, and temperature etc. are the surface values.
+- A met-only run works with a single dummy source of one particle (1 h maximum travel time) and
+  "Pressure (Pa)" requested at 0 m agl on a `Locations:` set, one time grid per sounding: 46
+  soundings of 1 Jan 2013 took 15 s on 1 thread (`surface_pressure.py`). Its surface pressures are
+  those the main run reports at the same points and times.
 - NetCDF field output needs the NetCDF executable (`nameiii_eccodes_NetCDF_64bit_par.exe` in
   8.7.1); Mk12 met definitions exist only in 8.7.1.
 

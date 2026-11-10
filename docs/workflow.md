@@ -12,12 +12,20 @@ from here to the code. Each module's docstring describes the same step in more d
 
 ## Preparing runs from current L2 data (`name_satellite/prepare.py`)
 `python -m name_satellite.prepare PRODUCT SITE YYYY-MM WORK [--test]` chains steps 1-4 for a
-month: for each day it downloads the L2 file (`l2_files.py`, CEDA over HTTPS; days without a file
+month. For each day it downloads the L2 file (`l2_files.py`, CEDA over HTTPS; days without a file
 are skipped), selects the good soundings in the site's box (`domains.py`), writes the observation
-file (keyed by sounding ID), plans the releases (bottom layer from the retrieval's surface
-pressure), and writes the NAME input and job. It also writes one met-restore job for the month and
-`submit.sh`, which runs every day's job after the restore (`afterok`). Job scripts exit non-zero if
-NAME fails or writes to its error file. `--test` limits travel to 1 hour on the debug queue.
+file (keyed by sounding ID) and `day.json`, and writes two NAME jobs:
+
+1. a **met-only surface-pressure run** (`surface_pressure.py`; 1 thread, minutes): the model's
+   surface pressure at each sounding's position and time, needed to scale the release layers (D19);
+2. the **main job**, which first runs `python -m name_satellite.prepare main-input DAYFOLDER`
+   (`write_main_input`: reads the surface pressure, checks model / retrieval is within 0.9-1.1,
+   writes `surface_pressure.csv`, `release_plan.csv` and `input.txt`) and then runs NAME.
+
+It also writes one met-restore job for the month and `submit.sh`, which chains restore → each day's
+surface-pressure job → that day's main job (`afterok`: a job starts only if the one before
+succeeded). Job scripts exit non-zero if NAME fails or writes to its error file. `--test` limits
+travel to 1 hour on the debug queue.
 
 ## 1. Read soundings *(first version: `name_satellite/observations.py`)*
 **In:** one day's University of Leicester OCPR proxy XCH4 file: GOSAT-1 v10.0 or GOSAT-2 v2.0 (ESA
@@ -48,7 +56,11 @@ identical, unbinned and binned. The legacy code cannot read v10 or GOSAT-2 files
 each retrieval level below the ceiling, a vertical layer (pressure top and bottom, Pa), a
 horizontal box (the footprint size), a 60 s release time and a particle rate.
 Layers run between the midpoints of neighbouring retrieval levels. The lowest layer starts at the
-surface. Legacy details: `dev/notes/gosat-l2-and-preprocessing.md`.
+surface. For new runs every level is first scaled by model / retrieval surface pressure
+(`scale_to_model_surface`, D19), so the layers follow the model's terrain and keep their shares of
+the column; the model surface pressure comes from the met-only run (`surface_pressure.py`). Legacy
+validation runs instead replace level 0 by the legacy NAME surface pressure (D16, X9). Legacy
+details: `dev/notes/gosat-l2-and-preprocessing.md`.
 
 Done: `release_layers_pa` (layer centre and thickness, Pa), `particles_per_second` (legacy
 rate rule), `footprint_box_degrees` (10.5 km box, legacy haversine) and `build_release_plan` (one

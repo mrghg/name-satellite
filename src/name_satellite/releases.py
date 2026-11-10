@@ -26,17 +26,46 @@ which give level 0 roughly half weight.
 
 NAME is told the *centre* and *thickness* of each layer, in Pa.
 
-Legacy option: NAME surface pressure
-------------------------------------
-The 2013 legacy runs replaced p[0] by a surface pressure taken from a separate NAME run
-(``use_name_pressure=True``); see docs/deviations.md X9. Pass ``surface_pressure_hpa`` to
-reproduce that. By default the retrieval's own p[0] is used.
+Surface pressure: retrieval, model-scaled (D19) or legacy
+---------------------------------------------------------
+The retrieval's surface pressure p[0] and the met model's differ (smoothed model topography): on
+1 Jan 2013 the model's was a median 10 hPa higher (model ground ~85 m lower), so layers taken
+straight from the retrieval usually start above the model ground, and occasionally below it.
+
+* Default for new runs (decision D19): pass ``model_surface_pressure_hpa`` (from the met-only NAME
+  run, ``surface_pressure.py``). EVERY level is multiplied by model / retrieval surface pressure,
+  so the layers follow the model's terrain: layer 0 starts at the model ground, and each layer
+  keeps exactly its fraction of the column, so the retrieval's pressure weights and averaging
+  kernel still apply unchanged. Every level moves by the same fraction of its pressure: median
+  1%, up to 3.5% on 1 Jan 2013.
+* Without it, the retrieval's own levels are used unchanged.
+* Legacy (validation only): the 2013 legacy runs replaced p[0] alone by a surface pressure from a
+  separate NAME run (``use_name_pressure=True``; docs/deviations.md X9). Pass
+  ``surface_pressure_hpa`` to reproduce that.
 """
 
 import numpy as np
 import pandas as pd
 
 HPA_TO_PA = 100.0
+
+
+def scale_to_model_surface(pressure_levels_hpa, model_surface_pressure_hpa):
+    """Retrieval levels scaled so that level 0 equals the model's surface pressure (D19).
+
+    Args:
+        pressure_levels_hpa: retrieval level pressures in hPa, surface first.
+        model_surface_pressure_hpa: the met model's surface pressure at the sounding (hPa).
+
+    Returns:
+        New array: every level multiplied by model / retrieval surface pressure. Layer boundaries
+        (``layer_boundaries_hpa``) scale by the same factor, so each layer keeps its fraction of
+        the column.
+    """
+    p = np.array(pressure_levels_hpa, dtype=float)
+    if not model_surface_pressure_hpa > 0:
+        raise ValueError(f"Model surface pressure must be > 0; got {model_surface_pressure_hpa}")
+    return p * (model_surface_pressure_hpa / p[0])
 
 
 def layer_boundaries_hpa(pressure_levels_hpa, surface_pressure_hpa=None):
@@ -142,6 +171,7 @@ def build_release_plan(
     footprint_diameter_km=10.5,
     surface_pressure_hpa=None,
     box_degrees=None,
+    model_surface_pressure_hpa=None,
 ):
     """One row per NAME release (source) for one day of soundings.
 
@@ -152,7 +182,10 @@ def build_release_plan(
         n_levels: retrieval levels released per sounding, from the surface (legacy 17).
         release_seconds: length of each release (legacy 60 s).
         level_split, footprint_diameter_km: see ``particles_per_second``, ``footprint_box_degrees``.
-        surface_pressure_hpa: optional per-sounding replacement of level 0 (legacy X9).
+        surface_pressure_hpa: optional per-sounding replacement of level 0 (legacy X9;
+            validation runs only).
+        model_surface_pressure_hpa: optional per-sounding model surface pressure (hPa); every
+            level is scaled to it (``scale_to_model_surface``, D19). The default for new runs.
         box_degrees: optional (dlon, dlat) arrays per sounding, overriding the footprint box (e.g.
             the widened boxes of legacy binned soundings).
 
@@ -171,10 +204,15 @@ def build_release_plan(
     times = pd.to_datetime(obs["time"].values).floor("s")
     n_points = len(times)
     sounding_ids = obs["sounding_id"].values if "sounding_id" in obs.variables else None
+    if surface_pressure_hpa is not None and model_surface_pressure_hpa is not None:
+        raise ValueError("Give surface_pressure_hpa (legacy) or model_surface_pressure_hpa")
     rows = []
     for p in range(n_points):
+        levels = obs["pressure_levels"].values[p]
+        if model_surface_pressure_hpa is not None:
+            levels = scale_to_model_surface(levels, model_surface_pressure_hpa[p])
         surface = None if surface_pressure_hpa is None else surface_pressure_hpa[p]
-        centre_pa, thickness_pa = release_layers_pa(obs["pressure_levels"].values[p], surface)
+        centre_pa, thickness_pa = release_layers_pa(levels, surface)
         lat = float(obs["lat"].values[p])
         lon = float(obs["lon"].values[p])
         if box_degrees is None:

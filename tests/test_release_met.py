@@ -112,3 +112,12 @@ def test_release_met_per_source_pressure_rule():
                                              85_000.0, 79_998.0, 69_998.0]  # fmt: skip
     assert table["temperature_c"].iloc[0] == pytest.approx(26.85)
     assert table["temperature_c"].iloc[1:3].isna().all()
+
+
+def test_surface_pressure_only_blocks():
+    from name_satellite.surface_pressure import QUANTITIES
+
+    text = release_met_blocks(release_met_soundings(plan(2)), 0.352, 0.234, QUANTITIES)
+    assert "ZArray" not in text  # no release-level grid needed
+    assert text.count(", ReleaseMet_S0001") == 1
+    assert "S0002_PS, Pressure (Pa), , , , HGrid_RM1, ZGrid_Ground, TGrid_S0002," in text

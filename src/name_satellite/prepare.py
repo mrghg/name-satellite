@@ -2,42 +2,57 @@
 
 Where this sits (see docs/workflow.md)
 --------------------------------------
-    L2 files (CEDA)  ->  **prepare**: per day, observation file + release plan + NAME input + job
-    ->  run the jobs on LOTUS2  ->  read and process the output (steps 5-6)
+    L2 files (CEDA)  ->  **prepare**: per day, observation file + surface-pressure run + job
+    ->  on LOTUS2: met restore -> surface-pressure run -> main job (writes the NAME input, runs
+    NAME)  ->  read and process the output (steps 5-6)
 
-For each day of the month, ``prepare_day``:
+Each day has TWO NAME runs, because the release layers are scaled to the model's surface pressure
+(decision D19), which only a NAME run can report:
+
+``prepare_day`` (now, on the sci node):
   1. downloads the day's L2 file (``l2_files``; days without a file are skipped and reported);
   2. reads it and keeps good soundings in the site's box (``observations``: quality flag, defined
      pressure levels, pressures decreasing from the surface, lat/lon bounds), binned if the site
      says so;
-  3. writes the observation file, keyed by sounding ID (D18);
-  4. plans the releases (``releases.build_release_plan``): bottom layer from the RETRIEVAL's
-     surface pressure (the legacy separate surface-pressure run does not exist for new data; the
-     run's release-point met reports the model's surface pressure, so X9 can be checked);
-  5. writes the NAME input (with release-point met, X21) and the Slurm job.
+  3. writes the observation file, keyed by sounding ID (D18), and ``day.json`` (what was asked);
+  4. writes the met-only surface-pressure run (``surface_pressure``) and its job;
+  5. writes the main job, which first runs ``write_main_input`` and then NAME.
+
+``write_main_input`` (in the main job, once the surface-pressure run has finished):
+  6. reads the model surface pressure and checks it against the retrieval's
+     (``surface_pressure.csv``);
+  7. plans the releases (``releases.build_release_plan``), every level scaled to the model
+     surface (D19), and writes ``release_plan.csv``;
+  8. writes the NAME input (with release-point met, X21).
 
 ``prepare_month`` also writes one met-restore job for the whole month and ``submit.sh``, which
-submits the restore job and then every day's NAME job after it (Slurm ``afterok``).
+submits the restore job, then each day's surface-pressure job after it and the day's main job
+after that (Slurm ``afterok``: a job starts only if the one before succeeded).
 
 Run folder layout (``WORK/<site>_<product>_<YYYYMM>/``)::
 
     restore_met.sbatch, submit.sh, summary.csv
-    YYYYMMDD/obs_<site>_<YYYYMMDD>.nc, release_plan.csv, input.txt, job.sbatch, output/
+    YYYYMMDD/obs_<site>_<YYYYMMDD>.nc, day.json, job.sbatch, output/
+    YYYYMMDD/surface_pressure/soundings.csv, input.txt, job.sbatch, output/
+    written by the main job: YYYYMMDD/surface_pressure.csv, release_plan.csv, input.txt
 
     uv run python -m name_satellite.prepare "GOSAT-1 v10.0" GOSAT-BRAZIL 2013-01 WORK [--test]
+    uv run python -m name_satellite.prepare main-input WORK/.../YYYYMMDD   (what the job runs)
 
 ``--test``: particles travel 1 hour only, debug queue, to check a set-up quickly (lesson of X20).
 """
 
 import dataclasses
+import json
 import sys
 from pathlib import Path
 
 import pandas as pd
+import xarray as xr
 
 from name_satellite.domains import SITES
 from name_satellite.l2_files import L2FileMissing, download_l2
-from name_satellite.lotus import write_job_script, write_met_restore_job
+from name_satellite.lotus import REPO, write_job_script, write_met_restore_job
 from name_satellite.met import met_version_for_period
 from name_satellite.name_input import RunSettings, run_timing, write_name_input
 from name_satellite.observations import (
@@ -51,8 +66,14 @@ from name_satellite.observations import (
     to_obs,
     write_obs_file,
 )
-from name_satellite.release_met import MAX_SOUNDINGS
+from name_satellite.release_met import MAX_SOUNDINGS, release_met_soundings
 from name_satellite.releases import build_release_plan
+from name_satellite.surface_pressure import (
+    read_surface_pressure,
+    surface_pressure_input_text,
+    surface_pressure_settings,
+    surface_pressure_table,
+)
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 L2_CACHE = SCRATCH / "l2_cache"
@@ -89,8 +110,16 @@ def run_settings(site, run_folder, day, threads, test):
     return settings
 
 
+def release_boxes(obs):
+    """(dlon, dlat) per sounding for binned soundings, else None (the footprint box is used)."""
+    return (obs["dlon"].values, obs["dlat"].values) if "dlat" in obs else None
+
+
 def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
-    """Prepare one day's NAME run. Returns a summary dict (one row of summary.csv)."""
+    """Prepare one day: observation file, surface-pressure run and the main job.
+
+    Returns a summary dict (one row of summary.csv).
+    """
     day = pd.Timestamp(day)
     row = {"day": f"{day:%Y-%m-%d}", "status": "", "l2_soundings": 0, "soundings": 0, "sources": 0}
     try:
@@ -112,18 +141,40 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
     run_folder = month_folder / f"{day:%Y%m%d}"
     (run_folder / "output").mkdir(parents=True)
     write_obs_file(table, run_folder / f"obs_{site.name}_{day:%Y%m%d}.nc")
-    obs = to_obs(table)
-    boxes = (obs["dlon"].values, obs["dlat"].values) if "dlat" in obs else None
-    plan = build_release_plan(obs, footprint_diameter_km=site.footprint_km, box_degrees=boxes)
-    plan.to_csv(run_folder / "release_plan.csv", index=False)
+    info = {"product": product, "site": site.name, "day": f"{day:%Y-%m-%d}", "threads": threads,
+            "test": test}  # fmt: skip
+    (run_folder / "day.json").write_text(json.dumps(info, indent=2) + "\n")
 
+    # A provisional plan from the retrieval's own levels: its soundings, times and positions are
+    # final (only the pressures change, D19), so it gives the met-only run and the timing.
+    obs = to_obs(table)
+    plan = build_release_plan(obs, footprint_diameter_km=site.footprint_km,
+                              box_degrees=release_boxes(obs))  # fmt: skip
     settings = run_settings(site, run_folder, day, threads, test)
-    write_name_input(run_folder / "input.txt", plan, settings)
+    qos = "debug" if test else "standard"
+
+    # The met-only run: model surface pressure at each sounding.
+    folder = run_folder / "surface_pressure"
+    (folder / "output").mkdir(parents=True)
+    soundings = release_met_soundings(plan)
+    soundings.to_csv(folder / "soundings.csv", index=False)
+    sp_settings = surface_pressure_settings(settings, folder / "output")
+    (folder / "input.txt").write_text(surface_pressure_input_text(soundings, sp_settings))
+    write_job_script(folder / "job.sbatch", folder, folder / "input.txt", threads=1, qos=qos,
+                     time="00:30:00", memory="8G",
+                     job_name=f"{site.name}_{day:%Y%m%d}_ps")  # fmt: skip
+
+    # The main job: write the NAME input from the surface pressure, then run NAME.
+    write_main = (
+        f"cd {REPO}\n"
+        f"~/.local/bin/uv run --no-sync python -m name_satellite.prepare main-input {run_folder}"
+        " || exit 1"
+    )
     qos, time = ("debug", "00:30:00") if test else ("high", "12:00:00")
     write_job_script(run_folder / "job.sbatch", run_folder, run_folder / "input.txt",
                      threads=threads, qos=qos, time=time, memory="32G",
-                     job_name=f"{site.name}_{day:%Y%m%d}")  # fmt: skip
-    timing = run_timing(plan, settings)
+                     job_name=f"{site.name}_{day:%Y%m%d}", before_name=write_main)  # fmt: skip
+    timing = run_timing(plan, settings)  # unaffected by the pressures
     row.update(
         status="prepared",
         sources=len(plan),
@@ -132,6 +183,46 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
         met_end=f"{plan['release_start'].max():%Y-%m-%dT%H:%M}",
     )
     return row
+
+
+def write_main_input(run_folder):
+    """Write a day's release plan and NAME input from its surface-pressure run (steps 6-8).
+
+    Run by the day's main job after the surface-pressure job (``submit.sh``); can be run by hand.
+
+    Writes ``surface_pressure.csv`` (retrieval and model surface pressure, hPa, and their ratio),
+    ``release_plan.csv`` (every level scaled to the model surface, D19) and ``input.txt``.
+
+    Raises:
+        ValueError if the surface-pressure output is missing, or implausible
+        (``surface_pressure.surface_pressure_table``).
+    """
+    run_folder = Path(run_folder)
+    info = json.loads((run_folder / "day.json").read_text())
+    site = SITES[info["site"]]
+    day = pd.Timestamp(info["day"])
+    with xr.open_dataset(run_folder / f"obs_{site.name}_{day:%Y%m%d}.nc") as f:
+        obs = f.load()
+
+    folder = run_folder / "surface_pressure"
+    soundings = pd.read_csv(folder / "soundings.csv", parse_dates=["time"],
+                            dtype={"sounding_id": str})  # fmt: skip
+    model = read_surface_pressure(folder / "output", soundings)
+    surface = surface_pressure_table(obs, model)
+    surface.to_csv(run_folder / "surface_pressure.csv", index=False)
+
+    plan = build_release_plan(
+        obs,
+        footprint_diameter_km=site.footprint_km,
+        box_degrees=release_boxes(obs),
+        model_surface_pressure_hpa=surface["model_hpa"].to_numpy(),
+    )
+    plan.to_csv(run_folder / "release_plan.csv", index=False)
+    settings = run_settings(site, run_folder, day, info["threads"], info["test"])
+    write_name_input(run_folder / "input.txt", plan, settings)
+    print(f"{run_folder}: {len(plan)} releases; model/retrieval surface pressure "
+          f"{surface['ratio'].min():.4f}-{surface['ratio'].max():.4f}")  # fmt: skip
+    return plan
 
 
 def prepare_month(product, site_name, month, work, threads=THREADS, test=False):
@@ -168,7 +259,8 @@ def prepare_month(product, site_name, month, work, threads=THREADS, test=False):
     )
     lines = [
         "#!/bin/bash",
-        "# Restore the met, then each day's NAME job after it (afterok: if the restore succeeded).",
+        "# Restore the met; then for each day the surface-pressure run, then the main run.",
+        "# afterok: a job starts only if the one before it succeeded.",
         "set -e",
         f"cd {month_folder}",
         "restore=$(sbatch --parsable restore_met.sbatch)",
@@ -176,8 +268,12 @@ def prepare_month(product, site_name, month, work, threads=THREADS, test=False):
     ]
     for day in prepared["day"]:
         folder = pd.Timestamp(day).strftime("%Y%m%d")
-        lines.append(f'echo "{folder}: job $(sbatch --parsable --dependency=afterok:$restore '
-                     f'{folder}/job.sbatch)"')  # fmt: skip
+        lines += [
+            f"ps=$(sbatch --parsable --dependency=afterok:$restore "
+            f"{folder}/surface_pressure/job.sbatch)",
+            f"main=$(sbatch --parsable --dependency=afterok:$ps {folder}/job.sbatch)",
+            f'echo "{folder}: surface pressure job $ps, main job $main"',
+        ]
     (month_folder / "submit.sh").write_text("\n".join(lines) + "\n")
     print(summary.to_string(index=False))
     print(f"Prepared {len(prepared)} days in {month_folder}; submit with: bash submit.sh")
@@ -186,4 +282,7 @@ def prepare_month(product, site_name, month, work, threads=THREADS, test=False):
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    prepare_month(*args[:4], test="--test" in sys.argv[1:])
+    if args and args[0] == "main-input":
+        write_main_input(args[1])
+    else:
+        prepare_month(*args[:4], test="--test" in sys.argv[1:])

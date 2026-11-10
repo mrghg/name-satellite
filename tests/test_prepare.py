@@ -38,8 +38,19 @@ def test_job_script_fails_on_name_errors(tmp_path):
     assert "python -m name_satellite.met_restore" in restore.read_text()
 
 
-def test_prepare_day(tmp_path, monkeypatch):
-    # Three soundings: two in the GOSAT-BRAZIL box (one sharing a time), one outside.
+def surface_pressure_output(names, pressures_pa):
+    """A met-only run's output file as NAME 8.7.1 writes it: surface pressure at each location."""
+    rows = [f" 1, {i}, 01/01/2013 15:00 UTC, {n}, {p}," for i, (n, p) in
+            enumerate(zip(names, pressures_pa, strict=True), start=1)]  # fmt: skip
+    return "\n".join(
+        [" NAME III (version 8.7.1)", " Fields:", " , , , , ,", " , , , , {req},",
+         " , , , , Pressure (Pa),", " , , , , ,", " , , , , Pa,", " , , , , Z = 0 m agl,",
+         " T Index, Location Index, T, Location, ,", *rows, ""]
+    )  # fmt: skip
+
+
+def test_prepare_day_then_main_input(tmp_path, monkeypatch):
+    # Three soundings: two in the GOSAT-BRAZIL box (sharing a time), one outside.
     l2 = write_l2(
         tmp_path / "UoL-GHG-L2-CH4-GOSAT-OCPR-20130101-fv10.0.nc",
         [-10.0, -11.0, 20.0],
@@ -52,13 +63,44 @@ def test_prepare_day(tmp_path, monkeypatch):
     assert (row["l2_soundings"], row["soundings"], row["sources"]) == (3, 2, 34)
 
     run = tmp_path / "month" / "20130101"
-    obs = xr.open_dataset(run / "obs_GOSAT-BRAZIL_20130101.nc")
+    with xr.open_dataset(run / "obs_GOSAT-BRAZIL_20130101.nc") as f:
+        obs = f.load()
     assert obs.sizes["sounding_id"] == 2
-    plan = pd.read_csv(run / "release_plan.csv")
-    assert sorted(plan["sounding_id"].astype(str).unique()) == sorted(obs["sounding_id"].values)
+    # Stage 1: the met-only surface-pressure run and a main job that writes its own input.
+    sp_text = (run / "surface_pressure" / "input.txt").read_text()
+    assert "DummySource" in sp_text
+    assert "np.float" not in sp_text
+    assert "S0002_PS, Pressure (Pa)" in sp_text
+    assert "_T, Temperature" not in sp_text  # surface pressure only
+    assert "prepare main-input" in (run / "job.sbatch").read_text()
+    assert not (run / "input.txt").exists()
+
+    # Stage 2, once the surface-pressure run has written its output.
+    p0 = obs["pressure_levels"].values[:, 0].astype(float) * 100
+    model = [p0[0] * 1.01, p0[1] * 0.99]
+    for name in ["S0001", "S0002"]:
+        text = surface_pressure_output(["S0001", "S0002"], model).replace("{req}", f"{name}_PS")
+        (run / "surface_pressure" / "output" / f"ReleaseMet_{name}_C1.txt").write_text(text)
+    plan = prepare.write_main_input(run)
+    surface = pd.read_csv(run / "surface_pressure.csv")
+    assert surface["ratio"].round(6).tolist() == [1.01, 0.99]
+    # The level-1 layer now starts at the model surface (D19).
+    level_1 = plan[plan["level_number"] == 1]
+    bottom = level_1["z_pa"] + level_1["dz_pa"] / 2
+    assert bottom.to_numpy() == pytest.approx(model)
+    saved = pd.read_csv(run / "release_plan.csv")
+    assert sorted(saved["sounding_id"].astype(str).unique()) == sorted(obs["sounding_id"].values)
     text = (run / "input.txt").read_text()
     assert text.count("\nSourceID_") == 34
     assert "ReleaseMet_S0002" in text  # release-point met requested in the run (X21)
+
+    # An implausible model surface pressure stops the job.
+    bad = surface_pressure_output(["S0001", "S0002"], [p0[0] * 1.5, p0[1]])
+    (run / "surface_pressure" / "output" / "ReleaseMet_S0001_C1.txt").write_text(
+        bad.replace("{req}", "S0001_PS")
+    )
+    with pytest.raises(ValueError, match="Implausible"):
+        prepare.write_main_input(run)
 
 
 def test_prepare_day_without_l2_file(tmp_path, monkeypatch):
