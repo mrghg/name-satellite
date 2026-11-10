@@ -21,6 +21,7 @@ with Matt Rigby unless noted.
 | D14 | 2026-11-07 | Boundary-histogram heights are binned in **pressure** (fixed pressure bins, finer near the surface; NAME fate output requested in `Pa`). The legacy m-agl bins are reproducible behind the legacy switch. | Global-model curtains are on hybrid sigma-pressure levels, which convert to pressure simply (p = a + b·ps); retrievals and release layers are already in pressure; terrain is handled naturally (empty bins below the surface). To check: NAME 8.7.1 supports a `Pa` Z-coordinate for particle-information output. |
 | D15 | 2026-11-09 | LOTUS2 jobs use `--account=acrg`, submitted from the sci servers. NAME runs in scratch; outputs to keep go to `~/acrg/mattrigby` (GWS nearly full: keep only processed footprints, inputs, logs). | Matt's choice; storage limits in `docs/jasmin.md`. |
 | D16 | 2026-11-09 | For the NAME 8.7.1 validation runs against the legacy 2013 footprints, the bottom release layer uses the **legacy NAME surface pressure** (recovered from the legacy input files with `legacy.legacy_surface_pressure_hpa`), not the retrieval's own (X9 stays open for production runs). | Like-for-like comparison: differences then come only from NAME version/met handling, the integration-window fix (X18) and Monte Carlo noise. |
+| D17 | 2026-11-10 | **GOSAT-1 and GOSAT-2 are separate observation streams.** Both UoL products are used (GOSAT-1 v10.0, 2009-04 to 2025-12; GOSAT-2 v2.0, 2019-02 to 2025-12), but never merged: separate observation files (and NAME runs/footprint files) per satellite, each recording its product and version. | Different instruments and different bias corrections (GOSAT-1: flat 16.655 ppb; GOSAT-2: 18.044 + 0.26 × SZA ppb), so the inversion can give each its own bias/offset. Matt, 2026-11-10. |
 
 ## Deferred options (evaluate after baseline validation)
 - **(a) Weighted release:** one column field per sounding using Source Groups, with particles
@@ -40,7 +41,10 @@ with Matt Rigby unless noted.
 4. ~~LOTUS2 account/QoS, scratch, output location, GitHub~~ Mostly resolved (2026-11-09): submit from
    sci servers; QoS/partitions in `docs/jasmin.md`; outputs to keep go to `~/acrg/mattrigby`
    (GWS nearly full), working files to scratch; GitHub `mrghg/name-satellite`; Slurm account `acrg`.
-5. **GOSAT-2 footprint size** (legacy uses 10.5 km for GOSAT-1).
+5. **GOSAT-2 footprint size** (legacy uses 10.5 km for GOSAT-1). The GOSAT-2 v2.0 files also say
+   "10.5km x 10.5km at nadir", possibly copied from GOSAT-1 (GOSAT-2's is thought to be ~9.7 km).
+   Matt is asking Leicester (2026-11-10), together with whether full-precision sounding times
+   exist (X22).
 6. Keep legacy **binning** (means over 0.234° × 0.352° cells) as an option?
 8. ~~**Height reference of boundary histograms.**~~ **Resolved by D14 (pressure).** Background: The legacy particle heights are **m agl** (checked
    2026-11-07: top exits sit at 19,011 m over the Altiplano and 19,012 m over the Atlantic, i.e. the
