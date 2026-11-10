@@ -117,3 +117,13 @@ before whole clock hours; records appear only at some phases of the 6-min sync c
 threading effect. Write-up and questions for the NAME team: `dev/notes/x20-for-name-team.md`.
 Also: with `Met? = Yes` the fate file has the met columns after Z (incl. `Pressure`, Pa) and a
 trailing comma; `read_name_fate_file` keeps `pressure_pa`. Pressure was present for every record.
+
+## Grid origin (X3, checked 2026-11-10)
+- Structured grids: point i is at X0 + (i−1)·dX, the centre of its dX × dY cell
+  (`GridAndDomain.F90` ~240 comment, ~1159).
+- Input `Horizontal Grids` column `X Min` is read straight into X0 (`Input.F90` ~3405), so X Min is
+  the centre of the first cell, not its edge.
+- Fields headers: NAME III format prints "X grid origin" = X0 (stage 1 8.7.1 and legacy 7.2 files:
+  −91.32900 = X Min = printed X of cell 1). The NAME II-format branch prints X0 − 0.5·dX
+  (`Output.F90` ~16696). The legacy hourly converter's "+0.5·resolution" (NAME_processing
+  `run_nc_hourly*.py`) is therefore right only for NAME II-format files.
