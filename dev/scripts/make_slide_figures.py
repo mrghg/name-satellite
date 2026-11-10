@@ -1,13 +1,14 @@
 """Figures for the group slides on the stage 1 and 2 validation (November 2026).
 
 Reads the processed footprint files of the stage 1 runs (A, B, B2) and the stage 2 daily runs
-(written by process_stage1.py and process_stage2.py) and the production file, and writes five PNGs:
+(written by process_stage1.py and process_stage2.py) and the production file, and writes six PNGs:
 
     f1_footprint_compare.png  one sounding: production vs rebuild (seed 1) vs rebuild (seed 2)
     f2_totals_scatter.png     column totals: rebuild vs production (1-7 Jan), and seed 1 vs seed 2
     f3_x18_window.png         X18: change from correcting the integration window vs release delay
     f4_day_footprints.png     sum of the 1 Jan column footprints from run A (corrected window)
     f5_shape_vs_cell_size.png share of the footprint in different cells vs cell size (1 Jan)
+    f6_x18_near_field_map.png X18 map: legacy vs corrected window near the most affected sounding
 
 matplotlib and cartopy are not project dependencies, so run with:
 
@@ -34,6 +35,7 @@ from name_satellite.validation import near_field_ratio, shape_difference
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 STAGE1 = SCRATCH / "stage1_20261109"
 STAGE2 = SCRATCH / "stage2_20261109"
+FP_UNITS = "(mol/mol) / (mol m⁻² s⁻¹)"  # footprint units
 SOUNDING = 13  # 1 Jan sounding shown in F1 (large footprint, released 1.66 h after the first)
 
 # Colours: one blue sequential ramp for magnitudes; blue and orange for the two series.
@@ -102,7 +104,7 @@ def figure_footprints(out, production, b, b2):
         )
         ax.set_title(title, fontsize=20, pad=10)
     colorbar = fig.colorbar(mesh, ax=fig.axes, shrink=0.8, pad=0.02, extend="min")
-    colorbar.set_label("Column footprint, (mol/mol) / (mol m⁻² s⁻¹)")
+    colorbar.set_label(f"Column footprint, {FP_UNITS}")
     fig.savefig(out / "f1_footprint_compare.png", dpi=110, bbox_inches="tight")
     plt.close(fig)
 
@@ -149,8 +151,8 @@ def figure_totals(out, production_all, production_0101, b, b2):
         ax.set_xlim(limits)
         ax.set_ylim(limits)
         ax.set_aspect("equal")
-        ax.set_xlabel(f"{x_label}: column total")
-        ax.set_ylabel(f"{y_label}: column total")
+        ax.set_xlabel(f"{x_label}: column total,\n{FP_UNITS}")
+        ax.set_ylabel(f"{y_label}: column total,\n{FP_UNITS}")
         ax.set_title(title, fontsize=20, pad=10)
         tidy(ax)
     fig.tight_layout()
@@ -205,7 +207,7 @@ def figure_day(out, a, positions):
     )  # fmt: skip
     ax.legend(loc="lower left", frameon=False)
     colorbar = fig.colorbar(mesh, ax=ax, shrink=0.6, pad=0.02, extend="min")
-    colorbar.set_label("Sum of the day’s column footprints")
+    colorbar.set_label(f"Sum of the day’s column footprints,\n{FP_UNITS}")
     fig.savefig(out / "f4_day_footprints.png", dpi=110, bbox_inches="tight")
     plt.close(fig)
 
@@ -241,6 +243,51 @@ def figure_shape_vs_cell_size(out, production, b, b2):
     plt.close(fig)
 
 
+def figure_window_map(out, a, b, positions):
+    """F6 (X18): footprints near the sounding with the largest near-field change, legacy window vs
+    corrected window (same seed), and their difference. Almost all of the difference is in the
+    sounding's own grid cell: the first ~40 min of backward travel, when particles are still
+    close to the sounding, were outside the legacy window."""
+    lat, lon = a["lat"].values, a["lon"].values
+    near = near_field_ratio(
+        a.values, b.values, lat, lon,
+        positions["release_lat"].values, positions["release_lon"].values,
+    )  # fmt: skip
+    s = int(np.argmax(near))
+    lat0 = float(positions["release_lat"][s])
+    lon0 = float(positions["release_lon"][s])
+    extent = [lon0 - 1.5, lon0 + 1.5, lat0 - 1.5, lat0 + 1.5]
+    legacy, corrected = b[s].values, a[s].values
+    vmax = float(max(legacy.max(), corrected.max()))
+    norm = mcolors.LogNorm(vmin=vmax * 1e-3, vmax=vmax)
+    difference = corrected - legacy
+    print(f"F6: sounding {s}, near field +{100 * (near[s] - 1):.1f}%, cells changed "
+          f"{int((difference != 0).sum())}, peak legacy {legacy.max():.3g} vs corrected "
+          f"{corrected.max():.3g}")  # fmt: skip
+
+    fig = plt.figure(figsize=(19, 6.6))
+    panels = [(legacy, "Legacy window"), (corrected, "Corrected window")]
+    for i, (data, title) in enumerate(panels):
+        ax = map_axes(fig, (1, 3, i + 1), extent)
+        mesh = ax.pcolormesh(lon, lat, data, norm=norm, cmap=SEQUENTIAL,
+                             transform=ccrs.PlateCarree())  # fmt: skip
+        ax.plot(lon0, lat0, marker="+", color=ORANGE, markersize=18, markeredgewidth=3,
+                transform=ccrs.PlateCarree())  # fmt: skip
+        ax.set_title(title, fontsize=22, pad=10)
+    colorbar = fig.colorbar(mesh, ax=fig.axes[:2], shrink=0.8, pad=0.02, extend="min")
+    colorbar.set_label(f"Column footprint, {FP_UNITS}")
+    ax = map_axes(fig, (1, 3, 3), extent)
+    added = np.where(difference > 0, difference, np.nan)
+    mesh = ax.pcolormesh(lon, lat, added, cmap=SEQUENTIAL, vmin=0, vmax=np.nanmax(added),
+                         transform=ccrs.PlateCarree())  # fmt: skip
+    ax.plot(lon0, lat0, marker="+", color=ORANGE, markersize=18, markeredgewidth=3,
+            transform=ccrs.PlateCarree())  # fmt: skip
+    ax.set_title("Corrected minus legacy", fontsize=22, pad=10)
+    fig.colorbar(mesh, ax=ax, shrink=0.8, pad=0.02).set_label(f"Footprint added, {FP_UNITS}")
+    fig.savefig(out / "f6_x18_near_field_map.png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main(out):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -258,6 +305,7 @@ def main(out):
     figure_window(out, a, b, positions)
     figure_day(out, a, positions)
     figure_shape_vs_cell_size(out, production_0101, b, b2)
+    figure_window_map(out, a, b, positions)
     print(f"Figures written to {out}")
 
 

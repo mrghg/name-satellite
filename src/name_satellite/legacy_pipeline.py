@@ -231,14 +231,20 @@ LEGACY_FILE_VARIABLES = {
 _EDGE_NAMES = {"n": "N", "e": "E", "s": "S", "w": "W"}
 
 
-def write_legacy_fp_file(ds, path, release_duration_hours=1 / 60):
+def write_legacy_fp_file(ds, path, release_duration_hours=1 / 60, rounding="legacy"):
     """Write a footprint file in the legacy (2019) layout, with the same netCDF encoding.
 
     Args:
         ds: output of ``process_day_legacy`` (one or more days concatenated along ``time``).
         path: output file (overwritten if it exists).
         release_duration_hours: written into the time variable's ``period`` attribute, as legacy.
+        rounding: "legacy" rounds each variable to its legacy ``least_significant_digit`` (lossy:
+            footprints to multiples of 2**-17, which biases column totals LOW by 0-1.4%, X7), so
+            the files can be compared with the 2019 ones exactly. "none" stores the full float32
+            values (X7 adopted: use this for new footprints). The layout is the same either way.
     """
+    if rounding not in ("legacy", "none"):
+        raise ValueError(f"rounding must be 'legacy' or 'none', not {rounding!r}")
     import netCDF4
 
     times = ds["time"].to_index().to_pydatetime()
@@ -269,11 +275,19 @@ def write_legacy_fp_file(ds, path, release_duration_hours=1 / 60):
             variable.units = units
         lev = nc.createVariable("lev", "S1", ("lev",))
         lev[:] = np.array(["column"])
-        height = nc.createVariable("height", "f", ("height",), zlib=True, least_significant_digit=4)
+
+        def digits(legacy_digits):
+            return legacy_digits if rounding == "legacy" else None
+
+        height = nc.createVariable(
+            "height", "f", ("height",), zlib=True, least_significant_digit=digits(4)
+        )
         height[:] = ds["height"].values
 
-        for name, (dims, digits, units) in LEGACY_FILE_VARIABLES.items():
-            variable = nc.createVariable(name, "f", dims, zlib=True, least_significant_digit=digits)
+        for name, (dims, legacy_digits, units) in LEGACY_FILE_VARIABLES.items():
+            variable = nc.createVariable(
+                name, "f", dims, zlib=True, least_significant_digit=digits(legacy_digits)
+            )
             variable[:] = ds[name].transpose(*dims).values
             variable.units = units
             if name.startswith("particle_locations_"):

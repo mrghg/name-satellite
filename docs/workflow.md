@@ -114,6 +114,10 @@ Modules, in order:
 Result: 1 Jan 2013 production footprints rebuilt **bit for bit** (every variable;
 `tests/test_processing.py`). The "2025" histogram variant also matches today's legacy code exactly.
 
+Writing: `write_legacy_fp_file` writes the legacy layout. `rounding="legacy"` reproduces the 2019
+files' lossy rounding (`least_significant_digit`), which biases column totals low by 0-1.4%;
+`rounding="none"` stores full float32 values and is the setting for new footprints (X7).
+
 ## Validation
 Each step is first checked against the legacy pipeline's output for GOSAT-BRAZIL, January 2013
 (see [reference-data.md](reference-data.md)), before any deliberate improvements

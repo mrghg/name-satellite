@@ -177,6 +177,30 @@ def test_golden_reproduces_production_20130101(refdata, tmp_path):
     assert new.attrs["max_level"] == production.attrs["max_level"]
 
 
+@pytest.mark.refdata
+def test_lossless_footprint_file_x7(refdata, tmp_path):
+    """rounding="none" stores the footprints exactly (float32); rounding them to the legacy step
+    2**-17 then gives the production file, and the legacy rounding biased column totals low (X7)."""
+    run = refdata("mr2019_input").parents[1]
+    result = process_day_legacy(run, "SOUTHAMERICA_GOSAT-BRAZIL_column", "20130101")
+    out = tmp_path / "fp_lossless.nc"
+    write_legacy_fp_file(result, out, rounding="none")
+    lossless = xr.open_dataset(out)["fp"].transpose("time", "lat", "lon").values
+    exact = result["fp"].values.astype(np.float32)
+    np.testing.assert_array_equal(lossless, exact)
+
+    production = xr.open_dataset(refdata("production_201301"))
+    production = production["fp"].sel(time=result["time"].values)
+    production = production.transpose("time", "lat", "lon").values
+    step = 2.0**-17
+    rounded = (np.round(result["fp"].values / step) * step).astype(np.float32)
+    np.testing.assert_array_equal(rounded, production)
+    change = production.sum(axis=(1, 2)) / result["fp"].values.sum(axis=(1, 2)) - 1
+    assert change.max() <= 0  # never higher
+    assert np.median(change) == pytest.approx(-0.004, abs=0.001)
+    assert change.min() == pytest.approx(-0.014, abs=0.001)
+
+
 # Days of January 2013 on which ONE footprint cell differs from production by one rounding step of
 # the legacy file writer (least_significant_digit=5 rounds to multiples of 2**-17; X7). Each such
 # value lies within ~1e-8 of a rounding boundary, so the direction of rounding depends on the last
