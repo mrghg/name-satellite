@@ -270,8 +270,8 @@ def dispersion_options_block(settings):
 
 def particle_fate_block(settings):
     # One line per particle when it stops (left the domain, or reached the maximum travel time):
-    # source number, travel time and position (dev/notes/name-code.md); with fate_met, also the
-    # met at that point (Output.F90 PPInfoColumnHeaders: U/V/W Ambient ... Pressure ...).
+    # source number, travel time and position (dev/notes/name-behaviour.md); with fate_met, also
+    # the met at that point (U/V/W Ambient ... Pressure ...).
     met = "Yes" if settings.fate_met else "No"
     return (
         "Output Requirements - Sets of Particle/Puff Information:\n"
@@ -282,11 +282,10 @@ def particle_fate_block(settings):
     )
 
 
-# NAME writes each output group's fields side by side, one column per field request, and refuses
-# (only when it first writes, i.e. at the END of the run) a line longer than MaxOutputLineLength =
-# 60,000 characters. Each column takes OutputFieldColumnWidth + 1 = 27 characters and the 4
-# preliminary columns 4 × 25 (GlobalParameters.F90, Output.F90 ~14970). So one output group holds at
-# most (60,000 - 100) / 27 = 2,218 releases; we use 2,000.
+# NAME writes each output group's fields side by side, one column per field request, and stops
+# with "too long an output line required for output group" if the line is too long - but only
+# when it first writes, i.e. at the END of the run. 2,720 columns in one group failed after 8 h
+# (stage 2 batch); 2,000 per group works (dev/notes/name-behaviour.md).
 MAX_FIELD_COLUMNS_PER_GROUP = 2000
 FIELDS_GROUP = "Fields_grid1"
 

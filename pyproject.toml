@@ -3,6 +3,8 @@ name = "name-satellite"
 version = "0.0.1"
 description = "Run and process Met Office NAME back-run footprints for satellite column retrievals on JASMIN"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Matt Rigby", email = "matt.rigby@bristol.ac.uk" }]
 requires-python = ">=3.12"
 dependencies = [

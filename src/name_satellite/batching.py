@@ -17,20 +17,20 @@ per-day name in ``day_source_name``. Splitting reverses this, so each day's outp
 like that of a one-day run (``SourceID_1 ..`` in that day's order) and goes through the same
 processing.
 
-Limit: NAME 8.7.1 allows at most 3,000 field requests per output time
-(``MaxFieldReqsPerReqInfo``, GlobalParameters.F90). Every source has one time-integrated field
-request at the same time, so a batched run can hold at most 3,000 sources.
+Limit: NAME 8.7.1 allows at most 3,000 field requests per output time. Every source has one
+time-integrated field request at the same time, so a batched run can hold at most 3,000 sources.
 
-Second limit: one output group (one fields file) can hold only about 2,218 sources, because NAME
-refuses output lines over 60,000 characters (MaxOutputLineLength). NAME checks this only when it
-first writes, i.e. at the END of the run: the first 7-day batch (2,720 sources) failed after 8 h.
+Second limit: one output group (one fields file) cannot hold all of them: NAME refuses output lines
+it considers too long, and checks this only when it first writes, i.e. at the END of the run. The
+first 7-day batch (2,720 sources in one group) failed after 8 h; 2,000 per group works
+(dev/notes/name-behaviour.md).
 ``name_input`` therefore splits the field requests into output groups of at most 2,000
 (``fields_output_group``), and ``name_output.read_fields_folder`` reads them back together.
 """
 
 import pandas as pd
 
-MAX_SOURCES_PER_RUN = 3000  # NAME 8.7.1 MaxFieldReqsPerReqInfo
+MAX_SOURCES_PER_RUN = 3000  # NAME 8.7.1: field requests per output time
 
 
 def combine_release_plans(plans_by_day):

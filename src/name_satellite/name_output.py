@@ -224,7 +224,7 @@ def read_acrg_particle_file(path):
     """Read a particle file written by the ACRG-modified NAME (legacy runs).
 
     The ACRG modification writes one line for every particle when it stops, i.e. when it leaves
-    the domain or reaches the end of the run (``Particle.F90``, ``InactivateParticle``)::
+    the domain or reaches the end of the run::
 
           Long    Lat    Ht  Age(hr)   Id
          -59.62 -14.93 19924    0.00  238
@@ -276,7 +276,7 @@ def read_name_fate_file(path):
     """Read a standard NAME (8.x) particle-fate file ("Fate Info? = Yes" particle output).
 
     NAME writes one line per particle when it stops: when it leaves the domain, or when it reaches
-    the maximum travel time (Case.F90, particles with a non-zero "mark"). After a header ending
+    the maximum travel time. After a header ending
     with the column-heading line, each line is::
 
         Source,Travel Time (hr),X (Lat-Long),Y (Lat-Long),Z (m agl)

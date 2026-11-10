@@ -23,14 +23,14 @@ day. Here instead, in the main run:
   each group has ONE set of locations (the sounding positions) and ONE vertical grid (an array
   of the level-1 release pressures, Pa), shared by its soundings;
 * each sounding has its own time grid (one time) and output group (one file). NAME 8.7.1 can't
-  output fields on an irregular time array (GridAndDomain.F90 TInTGrid assumes T0 + i dT; a
-  T-Array grid aborts in MultiplyShortTime), so one time grid per sounding it is;
+  output fields on an irregular time array (a T-Array grid aborts with "UNEXPECTED FATAL ERROR in
+  MultiplyShortTime"), so one time grid per sounding it is;
 * NAME outputs every combination of location and pressure at each sounding's time; we keep only
   the sounding's own (location, pressure). Cost: n² values per quantity and sounding for a group
   of n soundings, n³ in all, at most 86³ ≈ 640,000: small.
 
-Limits per run (NAME 8.7.1, GlobalParameters.F90): 200 time grids (MaxTGrids; one is the
-footprints' own), so MAX_SOUNDINGS = 199; 5 sets of locations and 12 input arrays (one per group),
+Limits per run (NAME 8.7.1): 200 time grids (one is the footprints' own), so MAX_SOUNDINGS =
+199; 5 sets of locations and 12 input arrays (one per group),
 which allow more. 199 soundings is about a week of GOSAT-BRAZIL, matching the 3,000-source limit
 of batching.py. The output groups (one per sounding) need ``RunSettings.max_field_output_groups``.
 
@@ -43,8 +43,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-MAX_PER_GROUP = 86  # NAME 8.7.1 MaxArrayLength
-MAX_SOUNDINGS = 199  # NAME 8.7.1 MaxTGrids (200), less the footprints' own time grid
+MAX_PER_GROUP = 86  # NAME 8.7.1: longest input array
+MAX_SOUNDINGS = 199  # NAME 8.7.1: 200 time grids, less the footprints' own
 NAME_TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
 
 # (request suffix, NAME quantity, vertical grid: "release" = level-1 pressure, "ground" = 0 m agl)

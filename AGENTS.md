@@ -35,6 +35,18 @@ The code will be read and checked by scientists, not just run. **Prefer clear ov
   there.
 - No `rm -rf` on paths built from variables. Use a new folder per attempt; leave cleanup to the user.
 
+## NAME licence
+NAME is Met Office software (Crown copyright), used under a licence that restricts its use,
+duplication and **disclosure**. This repository is meant to be shareable, so:
+- Never commit NAME source code, patches or diffs of it (a diff contains NAME code), executables,
+  demo or met-definition files, or met data. The patched build for X20 lives outside the repo.
+- Never quote NAME source, or describe its internals with file names, line numbers or internal
+  variable names, in code comments or docs. Describe only behaviour a NAME user can observe (input
+  syntax, output files, error messages, our measurements): `dev/notes/name-behaviour.md`.
+- Notes from reading NAME source go in `~/name-satellite-private/notes/` (outside git).
+- NAME files are read where they are installed (e.g. the met declarations on the NAME GWS),
+  never copied into the repo.
+
 ## Rules
 - Tooling: `uv` only (`uv sync`, `uv run ...`, `uv add ...`); never pip-install into the system.
   Python 3.12.

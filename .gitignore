@@ -5,6 +5,18 @@ data/
 *.txt.gz
 *.pp
 
+# NAME is Met Office software used under licence: never commit its source, patches or builds
+# (AGENTS.md, "NAME licence")
+*.F90
+*.f90
+*.patch
+*.diff
+*.exe
+Code_NameIII/
+NAME-8*/
+*Error.txt
+*Log.txt
+
 # NAME run output and scratch
 runs/
 scratch/

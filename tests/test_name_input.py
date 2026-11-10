@@ -160,9 +160,8 @@ def test_input_text_contents(plan_20130101):
 def test_field_requests_split_into_output_groups():
     from name_satellite.name_input import MAX_FIELD_COLUMNS_PER_GROUP, fields_output_group
 
-    # NAME refuses output lines over 60,000 characters: 4 preliminary columns of 25 characters
-    # plus 27 per field column (GlobalParameters.F90). Our groups must stay inside that.
-    assert 4 * 25 + MAX_FIELD_COLUMNS_PER_GROUP * 27 <= 60_000
+    # 2,720 field columns in one group failed; 2,000 works (dev/notes/name-behaviour.md).
+    assert MAX_FIELD_COLUMNS_PER_GROUP <= 2000
     assert fields_output_group(0) == "Fields_grid1"
     assert fields_output_group(MAX_FIELD_COLUMNS_PER_GROUP - 1) == "Fields_grid1"
     assert fields_output_group(MAX_FIELD_COLUMNS_PER_GROUP) == "Fields_grid1_2"

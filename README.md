@@ -84,6 +84,21 @@ dev/scripts/          one-off verification scripts used to establish those findi
 data/                 local reference data (git-ignored)
 ```
 
+## Licence and third-party software
+
+This repository is released under the [MIT licence](LICENSE).
+
+- **NAME is not included.** NAME is Met Office software (Crown copyright), available only under
+  licence from the Met Office. This repository contains no NAME source code, executables, met
+  definitions or met data; it writes NAME input files and reads NAME output, and needs a licensed
+  NAME installation (on JASMIN, the NAME group workspace).
+- **Satellite data are not included.** The University of Leicester GOSAT and GOSAT-2 proxy XCH4
+  products are downloaded from [CEDA](https://data.ceda.ac.uk) when needed, under their own licence
+  (Open Government Licence v3).
+- **Legacy code.** Parts of the processing reimplement methods from the ACRG legacy code:
+  [`acrg`](https://github.com/ACRG-Bristol/acrg) (MIT licence, © Matt Rigby) and `NAME_processing`
+  (MIT licence, © hanchawn), and follow the run set-up of `NAME_scripts`.
+
 ## Contact
 
 Matt Rigby, University of Bristol (matt.rigby@bristol.ac.uk)

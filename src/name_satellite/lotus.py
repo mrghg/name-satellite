@@ -7,8 +7,8 @@ Where this sits (see docs/workflow.md)
 The environment (modules, OpenMP variables, shumlib library path) is the one used by the NAME
 team's 8.7.1 demo scripts; see docs/jasmin.md.
 
-Threads: NAME refuses to use more threads than OpenMP reports as available
-(``OMP_NUM_THREADS``, NAME 8.7.1 OpenMP.F90), and LOTUS2 only gives a job the CPUs it asks for
+Threads: NAME will not use more threads than OpenMP reports as available
+(``OMP_NUM_THREADS``), and LOTUS2 only gives a job the CPUs it asks for
 (``--cpus-per-task``). So the job's CPUs, ``OMP_NUM_THREADS`` and the input file's ``Threads``
 must all be the same number; here they all come from ``RunSettings.threads``.
 """

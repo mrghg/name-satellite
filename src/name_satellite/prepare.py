@@ -57,7 +57,7 @@ from name_satellite.releases import build_release_plan
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 L2_CACHE = SCRATCH / "l2_cache"
 MET_ROOT = SCRATCH / "met"
-THREADS = 4  # about 80% efficient (benchmark, dev/notes/name-code.md)
+THREADS = 4  # about 80% efficient (benchmark, dev/notes/name-behaviour.md)
 
 
 def select_soundings(table, site):
