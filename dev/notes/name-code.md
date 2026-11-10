@@ -107,3 +107,13 @@ for time-integrated output is the end of the run: stage 2 batch job 66323622 (2,
 group) ran 8 h 21 min and then failed, with only the fate file written. `name_input` now splits the
 field requests into groups of ≤ 2,000 (`Fields_grid1`, `Fields_grid1_2`, ...). Lesson: test new
 run layouts with a 1-hour max-age run on the debug queue first.
+
+## X20 minimal example (2026-11-10)
+Single-thread run of 2 sources (1,801 particles each), 30 days, fate output with met columns
+(`dev/scripts/prepare_fate_test.py`, job 66602864, 31 min; analysis
+`dev/scripts/analyse_fate_test.py`): 3,717 records for 3,602 particles (+3.2%). 83 near-duplicate
+pairs (same source, Δtravel time = one 10-s step, positions one step apart); the excess clusters just
+before whole clock hours; records appear only at some phases of the 6-min sync cycle. So X20 is not a
+threading effect. Write-up and questions for the NAME team: `dev/notes/x20-for-name-team.md`.
+Also: with `Met? = Yes` the fate file has the met columns after Z (incl. `Pressure`, Pa) and a
+trailing comma; `read_name_fate_file` keeps `pressure_pa`. Pressure was present for every record.

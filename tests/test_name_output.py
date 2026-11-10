@@ -222,3 +222,29 @@ def test_tiny_fate_file(tmp_path):
     assert particles["age_hours"].tolist() == [3.0, 2.5, 0.0]
     assert particles["z"].iloc[1] == pytest.approx(383.6606)
     assert particle_counts(particles).to_dict() == {1: 2, 2: 1}
+
+
+# As NAME 8.7.1 writes it with "Met? = Yes" (RunSettings.fate_met): met columns after Z, and a
+# trailing comma on every line (cut down to two met columns plus Pressure, less padding).
+TINY_FATE_WITH_MET = """\
+ NAME III (version 8.7.1)
+ Run name:            fate_test
+ Backward trajectories
+
+ Set of particle/puff information: Particles
+ Source,Travel Time (hr),X (Lat-Long),Y (Lat-Long),Z (m agl),  U Ambient,  V Ambient,  Pressure,
+ 1,43.89711,-19.42067,-16.07199,102.2506,       9.662325,  -3.843483,  100489.8,
+ 2,44.09135,-19.42704,-12.39873,1913.624,       12.67187,  0.3975459,  81052.22,
+"""
+
+
+def test_fate_file_with_met_columns_keeps_pressure(tmp_path):
+    from name_satellite.name_output import read_name_fate_file
+
+    path = tmp_path / "Particles_C1.txt"
+    path.write_text(TINY_FATE_WITH_MET)
+    particles, z_units = read_name_fate_file(path)
+    assert z_units == "m agl"
+    assert particles["source_number"].tolist() == [1, 2]
+    assert particles["pressure_pa"].tolist() == [100489.8, 81052.22]
+    assert particles["z"].tolist() == [102.2506, 1913.624]

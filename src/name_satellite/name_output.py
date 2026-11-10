@@ -283,15 +283,17 @@ def read_name_fate_file(path):
         1,3,-33.83381,-10.57067,177.79
 
     Unlike the legacy ACRG file, the vertical coordinate is whatever the input requested (the
-    ``Z-Coord`` of the particle output block), and is named in the heading.
+    ``Z-Coord`` of the particle output block), and is named in the heading. With
+    ``RunSettings.fate_met`` NAME also writes met columns (U Ambient, ..., Pressure, ...); of these
+    only the pressure is kept.
 
     Args:
         path: fate file, plain text or ``.gz``.
 
     Returns:
         (particles, z_units): DataFrame with ``source_number`` (1-based NAME source number),
-        ``age_hours``, ``lon``, ``lat``, ``z``; and the vertical coordinate name, e.g. "m agl" or
-        "Pa".
+        ``age_hours``, ``lon``, ``lat``, ``z`` (and ``pressure_pa`` if the file has met columns);
+        and the vertical coordinate name, e.g. "m agl" or "Pa".
     """
     with _open_text(path) as f:
         lines = f.read().splitlines()
@@ -300,18 +302,29 @@ def read_name_fate_file(path):
     )
     if heading is None:
         raise ValueError(f"{path}: no 'Source,Travel Time ...' heading line")
-    columns = [c.strip() for c in lines[heading].split(",")]
+    # With "Met? = Yes" NAME adds met columns after Z and ends each line with a comma.
+    columns = [c.strip() for c in lines[heading].rstrip().rstrip(",").split(",")]
     expected = ["Source", "Travel Time (hr)", "X (Lat-Long)", "Y (Lat-Long)"]
-    if columns[:4] != expected or len(columns) != 5 or not columns[4].startswith("Z ("):
+    if columns[:4] != expected or not columns[4].startswith("Z ("):
+        raise ValueError(f"{path}: unexpected columns {columns}")
+    if len(columns) != 5 and "Pressure" not in columns:
         raise ValueError(f"{path}: unexpected columns {columns}")
     z_units = columns[4][3:-1]
 
-    rows = [line.split(",") for line in lines[heading + 1 :] if line.strip()]
-    bad = [i for i, row in enumerate(rows) if len(row) != 5]
+    rows = [line.rstrip().rstrip(",").split(",") for line in lines[heading + 1 :] if line.strip()]
+    bad = [i for i, row in enumerate(rows) if len(row) != len(columns)]
     if bad:
-        raise ValueError(f"{path}: {len(bad)} lines without 5 values")
-    particles = pd.DataFrame(rows, columns=["source_number", "age_hours", "lon", "lat", "z"])
-    particles = particles.astype(
-        {"source_number": int, "age_hours": float, "lon": float, "lat": float, "z": float}
+        raise ValueError(f"{path}: {len(bad)} lines without {len(columns)} values")
+    table = pd.DataFrame(rows, columns=columns)
+    particles = pd.DataFrame(
+        {
+            "source_number": table["Source"].astype(int),
+            "age_hours": table["Travel Time (hr)"].astype(float),
+            "lon": table["X (Lat-Long)"].astype(float),
+            "lat": table["Y (Lat-Long)"].astype(float),
+            "z": table[columns[4]].astype(float),
+        }
     )
+    if "Pressure" in columns:
+        particles["pressure_pa"] = table["Pressure"].astype(float)
     return particles, z_units
