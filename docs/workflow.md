@@ -110,6 +110,11 @@ environment; one thread count sets the job's CPUs, `OMP_NUM_THREADS` and the inp
 each release, a footprint field (time-integrated or hourly) and a record of where and when each
 particle left the domain.
 
+New runs (`prepare.py`): the main run uses the ACRG-patched NAME 8.7.1 (`met.PATCHED_NAME_DIR`,
+outside the repository), whose fate records also give each particle's index within its source and
+its fate code (X20), and asks for met columns in the fate records, so each fate has a pressure
+(D14). The met-only surface-pressure run uses the stock NAME 8.7.1.
+
 ## 5. Read NAME output *(in progress: `name_satellite/name_output.py`, `legacy.py`)*
 **In:** NAME fields and particle files. **Out:** for each release, a footprint (sensitivity of the
 mole fraction at the release to surface fluxes, (mol/mol)/(mol/m²/s)), counts of particles leaving

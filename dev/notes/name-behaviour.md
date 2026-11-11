@@ -13,6 +13,10 @@ repository.
 - The record has no particle identifier and no reason for stopping, so these must be inferred from
   position and travel time.
 - In the legacy ACRG 7.2 runs every particle appears exactly once (60 × rate + 1 per source).
+- Particles released by a 60-s source are not always 60 × rate + 1: NAME 8.7.1 released 1,801 at
+  30/s and 181 at 3/s, but 600 (not 601) at 10/s (smoke test 2026-11-11, job 67020916, all 22
+  sources at 10/s). So the number released must be counted from the fate records (each particle
+  appears once after `drop_repeated_fate_records`), not computed from the rate.
   NAME 8.7.1 writes extra records (X20):
   - 24-h benchmark: only for releases above the 19 km agl domain top (22 of 425 sources);
   - 30-day stage 1 runs: 406 of 425 sources, +12,348 records (2.2%), mostly lateral exits;

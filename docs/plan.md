@@ -104,6 +104,9 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   column footprints. No full month run yet: domains first (open question 11).
 - ☑ Job scripts: one per day, met restore as its own job, `afterok` dependencies; a job fails if
   NAME exits non-zero or writes to its error file.
+- ☑ Smoke test of the full new flow (D19–D22; patched NAME; fate records with pressure): 1 Jan 2013
+  GOSAT-1 v10, 1-h travel, jobs 67020914–6 (`prepare --test --days=2013-01-01`): 46 soundings
+  in 22 groups, 352 releases of 16 levels, no NAME errors, every particle exactly once.
 - ☐ Array jobs, run manifests, restartable (idempotent) months, collected logs.
 - ☑ Patched NAME 8.7.1 build with the particle index and fate code in the fate output (X20;
   `met.PATCHED_NAME_DIR`, outside the repository). X20 reported to the NAME team (2026-11-11).
@@ -126,7 +129,8 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   [footprint-file-spec.md](footprint-file-spec.md), under review by the group (supersedes D4 once
   agreed). Then: processing of new runs into it, and the inversion's reading switched to
   `sounding_id` (with the group).
-- ☐ Improved boundary sensitivities (D13, D14), after X20.
+- ☐ Improved boundary sensitivities (D13, D14), after X20. Normalise by the particles released
+  as counted in the fate records (a 10/s release gives 600, not 601: dev/notes/name-behaviour.md).
 - ☐ `srr` output (D4).
 
 ## Phase 7: Fix legacy bugs (each a logged deviation)

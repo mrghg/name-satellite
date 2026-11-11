@@ -43,9 +43,15 @@ Run folder layout (``WORK/<site>_<product>_<YYYYMM>/``)::
                              input.txt
 
     uv run python -m name_satellite.prepare "GOSAT-1 v10.0" GOSAT-BRAZIL 2013-01 WORK [--test]
+        [--days=2013-01-01,2013-01-02]
     uv run python -m name_satellite.prepare main-input WORK/.../YYYYMMDD   (what the job runs)
 
 ``--test``: particles travel 1 hour only, debug queue, to check a set-up quickly (lesson of X20).
+``--days``: prepare only these days of the month (e.g. one day for a test).
+
+The main run uses the ACRG-patched NAME 8.7.1 (``met.PATCHED_NAME_DIR``), whose fate records carry
+each particle's index and fate code (X20), and asks for met columns (incl. pressure, Pa) in the
+fate records (D14). The met-only run uses the stock NAME 8.7.1.
 """
 
 import dataclasses
@@ -60,7 +66,7 @@ import xarray as xr
 from name_satellite.domains import SITES
 from name_satellite.l2_files import L2FileMissing, download_l2
 from name_satellite.lotus import REPO, write_job_script, write_met_restore_job
-from name_satellite.met import met_version_for_period
+from name_satellite.met import PATCHED_NAME_DIR, met_version_for_period
 from name_satellite.name_input import RunSettings, run_timing, write_name_input
 from name_satellite.observations import (
     bad_pressure_mask,
@@ -118,6 +124,7 @@ def run_settings(site, run_folder, day, threads, test):
         met_version=met_version,
         met_folder=str(MET_ROOT / met_version.name),
         threads=threads,
+        fate_met=True,  # pressure (Pa) of each particle's fate, for the D14 pressure bins
     )
     if test:
         settings = dataclasses.replace(settings, max_age_hours=1)
@@ -214,7 +221,8 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
     qos, time = ("debug", "00:30:00") if test else ("high", "12:00:00")
     write_job_script(run_folder / "job.sbatch", run_folder, run_folder / "input.txt",
                      threads=threads, qos=qos, time=time, memory="32G",
-                     job_name=f"{site.name}_{day:%Y%m%d}", before_name=write_main)  # fmt: skip
+                     job_name=f"{site.name}_{day:%Y%m%d}", before_name=write_main,
+                     name_dir=PATCHED_NAME_DIR)  # fmt: skip
     timing = run_timing(plan, settings)  # unaffected by the pressures
     row.update(
         status="prepared",
@@ -272,8 +280,11 @@ def write_main_input(run_folder):
     return plan
 
 
-def prepare_month(product, site_name, month, work, threads=THREADS, test=False):
-    """Prepare every day of ``month`` ("YYYY-MM"). Returns the summary table."""
+def prepare_month(product, site_name, month, work, threads=THREADS, test=False, days=None):
+    """Prepare every day of ``month`` ("YYYY-MM"), or only ``days`` (dates in the month).
+
+    Returns the summary table.
+    """
     site = SITES[site_name]
     month = pd.Period(month, freq="M")
     month_folder = Path(work) / f"{site.name}_{product.replace(' ', '_')}_{month:%Y%m}"
@@ -281,10 +292,13 @@ def prepare_month(product, site_name, month, work, threads=THREADS, test=False):
         raise SystemExit(f"{month_folder} already exists; choose a new folder")
     month_folder.mkdir(parents=True)
 
-    rows = [
-        prepare_day(product, site, day, month_folder, threads, test)
-        for day in pd.date_range(month.start_time, month.end_time.normalize(), freq="D")
-    ]
+    all_days = pd.date_range(month.start_time, month.end_time.normalize(), freq="D")
+    if days is not None:
+        chosen = pd.DatetimeIndex(pd.to_datetime(list(days))).normalize()
+        if not chosen.isin(all_days).all():
+            raise ValueError(f"Days {list(days)} are not all in {month}")
+        all_days = chosen
+    rows = [prepare_day(product, site, day, month_folder, threads, test) for day in all_days]
     summary = pd.DataFrame(rows)
     summary.to_csv(month_folder / "summary.csv", index=False)
     prepared = summary[summary["status"] == "prepared"]
@@ -332,4 +346,6 @@ if __name__ == "__main__":
     if args and args[0] == "main-input":
         write_main_input(args[1])
     else:
-        prepare_month(*args[:4], test="--test" in sys.argv[1:])
+        days = [a.removeprefix("--days=") for a in sys.argv[1:] if a.startswith("--days=")]
+        prepare_month(*args[:4], test="--test" in sys.argv[1:],
+                      days=days[0].split(",") if days else None)  # fmt: skip
