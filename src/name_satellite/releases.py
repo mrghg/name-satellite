@@ -166,6 +166,18 @@ def check_modelled_levels(obs, scaled_levels_hpa, domain_top_hpa, n_levels,
         )
 
 
+# Decision D22: particle release rate (particles/s) of each modelled level, per product. Levels
+# 1-13 release 30/s, level 14 10/s and levels 15-16 3/s (legacy: 30/s up to level 12, 3/s above,
+# ``particles_per_second``). On the 1 Jan 2013 seed pair, level 13 (around 170 hPa) at 3/s gave
+# ~40% of the footprint noise and ~36% of the boundary noise for ~4% of the footprint; level 14
+# mainly adds boundary noise; levels 15-16 add little to either. This allocation cuts the noise
+# variance by ~37% (footprint) and ~40% (boundary) for ~10% more particle-hours.
+PARTICLE_RATES = {
+    "GOSAT-1 v10.0": (30,) * 13 + (10, 3, 3),
+    "GOSAT-2 v2.0": (30,) * 13 + (10, 3, 3),
+}
+
+
 def particles_per_second(level_number, level_split=12, low_rate=30, high_rate=3):
     """Particle release rate for a level (legacy rule from ``BackRuns_satellite.scr``).
 
@@ -221,6 +233,7 @@ def build_release_plan(
     surface_pressure_hpa=None,
     box_degrees=None,
     model_surface_pressure_hpa=None,
+    particle_rates=None,
 ):
     """One row per NAME release (source) for one day of soundings.
 
@@ -231,6 +244,8 @@ def build_release_plan(
         n_levels: retrieval levels released per sounding, from the surface (legacy 17).
         release_seconds: length of each release (legacy 60 s).
         level_split, footprint_diameter_km: see ``particles_per_second``, ``footprint_box_degrees``.
+        particle_rates: optional particles/s for each level 1..n_levels (e.g.
+            ``PARTICLE_RATES[product]``, D22); default the legacy ``level_split`` rule.
         surface_pressure_hpa: optional per-sounding replacement of level 0 (legacy X9;
             validation runs only).
         model_surface_pressure_hpa: optional per-sounding model surface pressure (hPa); every
@@ -255,6 +270,12 @@ def build_release_plan(
     sounding_ids = obs["sounding_id"].values if "sounding_id" in obs.variables else None
     if surface_pressure_hpa is not None and model_surface_pressure_hpa is not None:
         raise ValueError("Give surface_pressure_hpa (legacy) or model_surface_pressure_hpa")
+    if particle_rates is None:
+        rates = [particles_per_second(level, level_split) for level in range(1, n_levels + 1)]
+    else:
+        rates = [int(rate) for rate in particle_rates]
+        if len(rates) != n_levels or min(rates) < 1:
+            raise ValueError(f"Need {n_levels} positive particle rates; got {particle_rates}")
     rows = []
     for p in range(n_points):
         levels = obs["pressure_levels"].values[p]
@@ -281,7 +302,7 @@ def build_release_plan(
                 "dlat": float(dlat),
                 "z_pa": centre_pa[level - 1],
                 "dz_pa": thickness_pa[level - 1],
-                "particles_per_second": particles_per_second(level, level_split),
+                "particles_per_second": rates[level - 1],
             }
             if sounding_ids is not None:
                 row["sounding_id"] = str(sounding_ids[p])

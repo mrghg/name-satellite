@@ -60,7 +60,8 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☑ Modelled levels (D21, X10): levels wholly inside a 20 km agl domain (16 for the GOSAT
   products), prior above; per-sounding checks of the domain top (from the met-only run) and the
   modelled column weight (≥ 0.85). ☐ Measure the effect against 17 levels / 19 km.
-- ☐ Particle numbers for the upper levels 13–16 (open question 10).
+- ☑ Particle rates (D22, `releases.PARTICLE_RATES`): 30/s for levels 1–13, 10/s for level 14,
+  3/s for 15–16; from the stage 1 seed pair (`dev/scripts/analyse_level_noise.py`).
 
 ## Phase 3: NAME input generation and validation ☑ (open items below)
 - ☑ Python writer for NAME 8.7.1 input files (`name_input.py`); sources round-trip exactly and

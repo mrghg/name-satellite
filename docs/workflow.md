@@ -73,6 +73,10 @@ per-level footprints and its own weights. `Site.release_cell` sets the cells ("g
 validation runs instead replace level 0 by the legacy NAME surface pressure (D16, X9). Legacy
 details: `dev/notes/gosat-l2-and-preprocessing.md`.
 
+Particle rates: new runs take each level's rate from `releases.PARTICLE_RATES` (D22: 30/s for
+levels 1–13, 10/s for level 14, 3/s for 15–16 for the GOSAT products); validation runs keep the
+legacy rule (30/s up to level 12, 3/s above).
+
 Done: `release_layers_pa` (layer centre and thickness, Pa), `particles_per_second` (legacy
 rate rule), `footprint_box_degrees` (10.5 km box, legacy haversine) and `build_release_plan` (one
 row per release: name, sounding, level, times, box, layer, rate). They reproduce the vertical layers, positions, times and rates of all 11,526 legacy

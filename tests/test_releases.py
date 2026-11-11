@@ -11,6 +11,8 @@ import xarray as xr
 
 from name_satellite.legacy import read_name_input_sources
 from name_satellite.releases import (
+    PARTICLE_RATES,
+    build_release_plan,
     layer_boundaries_hpa,
     particles_per_second,
     release_layers_pa,
@@ -161,7 +163,6 @@ def test_scaling_to_model_surface_keeps_each_layers_share_of_the_column():
 
 
 def test_plan_scaled_to_model_surface():
-    from name_satellite.releases import build_release_plan
 
     obs = xr.Dataset(
         {
@@ -196,3 +197,22 @@ def test_check_modelled_levels():
         check_modelled_levels(good, levels, [550.0], n_levels=3)
     with pytest.raises(ValueError, match="column weight"):
         check_modelled_levels(good, levels, [100.0], n_levels=2)  # 0.6 < 0.85
+
+
+def test_particle_rates_per_level():
+    """D22: per-level rates replace the legacy level_split rule; one rate per modelled level."""
+    obs = xr.Dataset(
+        {
+            "time": ("time", pd.to_datetime(["2013-01-01 15:00:00"])),
+            "lon": ("time", [-50.0]),
+            "lat": ("time", [-10.0]),
+            "pressure_levels": (("time", "lev"), [np.linspace(1000.0, 50.0, 20)]),
+        }
+    )
+    rates = PARTICLE_RATES["GOSAT-1 v10.0"]
+    plan = build_release_plan(obs, n_levels=16, particle_rates=rates)
+    assert plan["particles_per_second"].tolist() == [30] * 13 + [10, 3, 3]
+    legacy = build_release_plan(obs, n_levels=16)
+    assert legacy["particles_per_second"].tolist() == [30] * 12 + [3] * 4
+    with pytest.raises(ValueError, match="16 positive particle rates"):
+        build_release_plan(obs, n_levels=16, particle_rates=rates[:15])

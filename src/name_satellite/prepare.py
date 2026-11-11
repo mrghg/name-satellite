@@ -26,7 +26,8 @@ Each day has TWO NAME runs, because the release layers are scaled to the model's
      (D21), groups the soundings
      that share releases (``release_groups``, D20; ``release_groups.csv`` maps each sounding to
      its group) and plans one set of releases per group (``releases.build_release_plan``,
-     ``release_plan.csv``);
+     ``release_plan.csv``), with each level's particle rate from ``releases.PARTICLE_RATES``
+     (D22);
   8. writes the NAME input (with release-point met, X21).
 
 ``prepare_month`` also writes one met-restore job for the whole month and ``submit.sh``, which
@@ -76,6 +77,7 @@ from name_satellite.release_groups import group_soundings, release_points
 from name_satellite.release_met import MAX_SOUNDINGS, release_met_soundings
 from name_satellite.releases import (
     MODELLED_LEVELS,
+    PARTICLE_RATES,
     build_release_plan,
     check_modelled_levels,
     scale_to_model_surface,
@@ -127,7 +129,7 @@ def release_boxes(obs):
     return (obs["dlon"].values, obs["dlat"].values) if "dlat" in obs else None
 
 
-def grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=None):
+def grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=None, particle_rates=None):
     """Release groups (D20) and their release plan for one day.
 
     Args:
@@ -135,6 +137,7 @@ def grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=None):
         site: the ``domains.Site`` (release cells, footprint size, output grid).
         n_levels: number of modelled levels (``releases.MODELLED_LEVELS``, D21).
         pressure_levels_hpa: optional (sounding, level) levels to release at (D19-scaled).
+        particle_rates: particles/s per level (``releases.PARTICLE_RATES``, D22); default legacy.
 
     Returns:
         (plan, members): the release plan (one set of releases per group; its ``sounding_id`` is
@@ -144,7 +147,7 @@ def grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=None):
     points, members = release_points(obs, groups, site.footprint_km, pressure_levels_hpa)
     boxes = (points["dlon"].values, points["dlat"].values)
     plan = build_release_plan(points, n_levels=n_levels, footprint_diameter_km=site.footprint_km,
-                              box_degrees=boxes)  # fmt: skip
+                              box_degrees=boxes, particle_rates=particle_rates)  # fmt: skip
     return plan, members
 
 
@@ -186,7 +189,8 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
     sounding_plan = build_release_plan(obs, n_levels=n_levels,
                                        footprint_diameter_km=site.footprint_km,
                                        box_degrees=release_boxes(obs))  # fmt: skip
-    plan, members = grouped_release_plan(obs, site, n_levels)
+    plan, members = grouped_release_plan(obs, site, n_levels,
+                                         particle_rates=PARTICLE_RATES[product])  # fmt: skip
     settings = run_settings(site, run_folder, day, threads, test)
     qos = "debug" if test else "standard"
 
@@ -255,7 +259,9 @@ def write_main_input(run_folder):
                        for p in range(len(surface))])  # fmt: skip
     n_levels = MODELLED_LEVELS[info["product"]]
     check_modelled_levels(obs, scaled, surface["domain_top_hpa"].to_numpy(), n_levels)
-    plan, members = grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=scaled)
+    rates = PARTICLE_RATES[info["product"]]
+    plan, members = grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=scaled,
+                                         particle_rates=rates)  # fmt: skip
     members.to_csv(run_folder / "release_groups.csv", index=False)
     plan.to_csv(run_folder / "release_plan.csv", index=False)
     settings = run_settings(site, run_folder, day, info["threads"], info["test"])
