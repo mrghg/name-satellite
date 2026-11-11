@@ -44,7 +44,9 @@ from name_satellite.name_input import (
 )
 from name_satellite.release_met import read_release_met, release_met_blocks
 
-QUANTITIES = [("PS", "Pressure (Pa)", "ground")]
+# Model surface pressure (D19), and the model pressure at the dispersion domain's top, so the
+# main job can check that every modelled release layer lies inside the domain (D21).
+QUANTITIES = [("PS", "Pressure (Pa)", "ground"), ("PT", "Pressure (Pa)", "top")]
 TRAVEL_HOURS = 1  # the dummy particle only has to exist; it is not used
 
 # Model / retrieval surface pressure outside this range means something is wrong (position, time
@@ -102,24 +104,30 @@ def surface_pressure_input_text(soundings, settings):
         dispersion_options_block(settings),
         dummy_source_block(soundings),
         met_declarations_block(settings),
-        release_met_blocks(soundings, settings.grid.dx, settings.grid.dy, QUANTITIES),
+        release_met_blocks(
+            soundings, settings.grid.dx, settings.grid.dy, QUANTITIES, settings.domain.z_max_m_agl
+        ),
     ]
     return "\n".join(blocks)
 
 
 def read_surface_pressure(output_folder, soundings):
-    """Model surface pressure (Pa) at each sounding, from the met-only run's output.
+    """Model surface pressure and domain-top pressure (Pa) at each sounding, from the met-only run.
 
     Returns:
-        ``soundings`` with ``surface_pressure_pa`` added.
+        ``soundings`` with ``surface_pressure_pa`` and ``domain_top_pressure_pa`` added.
 
     Raises:
-        ValueError if an output file is missing or a value is not a positive number.
+        ValueError if an output file is missing, a value is not a positive number, or the
+        domain top's pressure is not below the surface pressure.
     """
     table = read_release_met(output_folder, soundings, QUANTITIES)
-    values = table["surface_pressure_pa"].to_numpy()
-    if not np.all(np.isfinite(values) & (values > 0)):
-        raise ValueError(f"Bad model surface pressure in {output_folder}")
+    surface = table["surface_pressure_pa"].to_numpy()
+    top = table["domain_top_pressure_pa"].to_numpy()
+    if not np.all(np.isfinite(surface) & (surface > 0) & np.isfinite(top) & (top > 0)):
+        raise ValueError(f"Bad model pressure in {output_folder}")
+    if not np.all(top < surface):
+        raise ValueError(f"Domain-top pressure not below the surface pressure in {output_folder}")
     return table
 
 
@@ -132,7 +140,8 @@ def surface_pressure_table(obs, model):
 
     Returns:
         DataFrame in the order of ``obs``: ``sounding_id``, ``retrieval_hpa`` (level 0),
-        ``model_hpa``, ``ratio`` (model / retrieval: the factor applied to every level, D19).
+        ``model_hpa``, ``ratio`` (model / retrieval: the factor applied to every level, D19) and
+        ``domain_top_hpa`` (model pressure at the dispersion domain's top, D21).
 
     Raises:
         ValueError if the soundings differ or a ratio is outside PLAUSIBLE_RATIO.
@@ -149,6 +158,7 @@ def surface_pressure_table(obs, model):
         }
     )
     table["ratio"] = table["model_hpa"] / table["retrieval_hpa"]
+    table["domain_top_hpa"] = model.loc[ids, "domain_top_pressure_pa"].to_numpy() / 100.0
     low, high = PLAUSIBLE_RATIO
     bad = table[(table["ratio"] < low) | (table["ratio"] > high)]
     if not bad.empty:

@@ -49,7 +49,8 @@ MAX_PER_GROUP = 86  # NAME 8.7.1: longest input array
 MAX_SOUNDINGS = 199  # NAME 8.7.1: 200 time grids, less the footprints' own
 NAME_TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
 
-# (request suffix, NAME quantity, vertical grid: "release" = level-1 pressure, "ground" = 0 m agl)
+# (request suffix, NAME quantity, vertical grid: "release" = level-1 pressure, "ground" = 0 m agl,
+# "top" = the dispersion domain's top, m agl: only with ``top_m_agl``)
 QUANTITIES = [
     ("T", "Temperature (K)", "release"),
     ("P", "Pressure (Pa)", "release"),
@@ -92,7 +93,7 @@ def release_met_soundings(plan):
     return soundings
 
 
-def release_met_blocks(soundings, dx, dy, quantities=QUANTITIES):
+def release_met_blocks(soundings, dx, dy, quantities=QUANTITIES, top_m_agl=None):
     """NAME input blocks requesting met at each sounding (text to add to the input file).
 
     Args:
@@ -101,17 +102,24 @@ def release_met_blocks(soundings, dx, dy, quantities=QUANTITIES):
             grids built from locations; it doesn't affect point met.
         quantities: which met to request (default QUANTITIES; the met-only surface-pressure run
             asks for surface pressure only, ``surface_pressure.py``).
+        top_m_agl: height (m agl) of the "top" vertical grid: the dispersion domain's top, for
+            quantities with level "top" (D21).
 
     Output: one file per sounding, output group ``ReleaseMet_<sounding>``.
     """
     at_release = any(level == "release" for _, _, level in quantities)
+    at_top = any(level == "top" for _, _, level in quantities)
+    if at_top and top_m_agl is None:
+        raise ValueError("A quantity at the domain top needs top_m_agl")
     lines = [
         "! Met at the release points (name_satellite.release_met)",
         "Vertical Grids:",
         "Name, Z-Coord, nZ, dZ, Z0",
         "ZGrid_Ground, m agl, 1, 0.0, 0.0",
-        "",
     ]
+    if at_top:
+        lines.append(f"ZGrid_Top, m agl, 1, 0.0, {float(top_m_agl)!r}")
+    lines.append("")
     for group, members in soundings.groupby("group"):
         g = f"RM{group}"
         lines += [f"Locations: ReleasePoints_{group}", "Name, H-Coord, X, Y"]
@@ -151,7 +159,8 @@ def release_met_blocks(soundings, dx, dy, quantities=QUANTITIES):
         ]
         for s in members.itertuples():
             for suffix, quantity, level in quantities:
-                z_grid = f"ZGrid_{g}" if level == "release" else "ZGrid_Ground"
+                z_grids = {"release": f"ZGrid_{g}", "ground": "ZGrid_Ground", "top": "ZGrid_Top"}
+                z_grid = z_grids[level]
                 # Wind direction needs a horizontal coordinate system to be measured in.
                 h_coord = "Lat-Long" if "Direction" in quantity else ""
                 lines.append(
@@ -174,6 +183,7 @@ OUTPUT_NAMES = {
     "WD": "wind_direction_deg",
     "BL": "boundary_layer_depth_m",
     "PS": "surface_pressure_pa",
+    "PT": "domain_top_pressure_pa",
 }
 
 

@@ -20,8 +20,13 @@ repository.
     `analyse_fate_test.py`): 3,717 records for 3,602 particles (+3.2%); 83 near-duplicate pairs
     (same source, one 10-s time step apart, positions one step apart); the excess clusters just
     before whole clock hours; records are written only at some phases of the 6-min sync cycle.
-    Not a threading effect. Reported to the NAME team; interim plan: a patched build (outside the
-    repository) that adds a particle index and fate code to each record.
+    Not a threading effect. Reported to the NAME team.
+  - With the ACRG-patched build (`met.PATCHED_NAME_DIR`, outside the repository), each record also
+    has `Particle Index` (1 to the number released, per source) and `Fate Code` (8 = left the
+    domain, 16 = reached the maximum travel time) after Z. The minimal example then gives records
+    identical to the stock build, every particle present, and 115 particles written exactly twice:
+    10 s apart, both "left the domain", just before a whole hour of travel. Keeping each
+    particle's first record removes them exactly (`name_output.drop_repeated_fate_records`).
 
 ## Limits met in our runs
 - Footprint field requests: at most 3,000 per output time, so at most 3,000 sources per run.

@@ -103,6 +103,7 @@ def write_job_script(
     job_name="name_satellite",
     account="acrg",
     before_name="",
+    name_dir=NAME_DIR,
 ):
     """Write a Slurm job script that runs NAME 8.7.1 on one input file.
 
@@ -116,6 +117,8 @@ def write_job_script(
         account: Slurm account (decision D15: acrg).
         before_name: shell lines to run before NAME (e.g. writing the input file,
             ``prepare.write_main_input``); the job stops with an error if they fail.
+        name_dir: NAME installation whose executable runs (default the NAME team's 8.7.1;
+            ``met.PATCHED_NAME_DIR`` for the patched fate records, X20).
 
     Returns:
         The path written.
@@ -136,7 +139,7 @@ def write_job_script(
         threads=threads,
         work=work_dir,
         shumlib=SHUMLIB,
-        name_dir=NAME_DIR,
+        name_dir=name_dir,
         input_file=input_file,
         before_name=f"\n{before_name.rstrip()}\n" if before_name else "",
         # NAME names its error file after the input file: input.txt -> inputError.txt

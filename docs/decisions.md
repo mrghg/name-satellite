@@ -24,6 +24,8 @@ with Matt Rigby unless noted.
 | D17 | 2026-11-10 | **GOSAT-1 and GOSAT-2 are separate observation streams.** Both UoL products are used (GOSAT-1 v10.0, 2009-04 to 2025-12; GOSAT-2 v2.0, 2019-02 to 2025-12), but never merged: separate observation files (and NAME runs/footprint files) per satellite, each recording its product and version. | Different instruments and different bias corrections (GOSAT-1: flat 16.655 ppb; GOSAT-2: 18.044 + 0.26 × SZA ppb), so the inversion can give each its own bias/offset. Matt, 2026-11-10. |
 | D18 | 2026-11-10 | **Soundings are identified by their sounding ID** (the L2 exposure ID; for a legacy bin, the exposure ID of its earliest sounding, with all its exposure IDs kept in `exposure_id`). Our observation files are indexed by `sounding_id`, with time as an ordinary variable (`observations.to_obs`); release plans carry `sounding_id`. The legacy time-indexed layout is kept only for comparisons with legacy files. | GOSAT-1 v10 and GOSAT-2 v2 times are whole minutes, so times repeat (X22); time cannot be a key. Matt, 2026-11-10. Footprint files and the inversion's observation reading will need to use the same key. |
 | D19 | 2026-11-10 | **Release layers follow the model's terrain.** For new runs, each sounding's retrieval levels are all multiplied by model / retrieval surface pressure before the layers are built (`releases.scale_to_model_surface`), so the bottom layer starts at the model ground and every layer keeps its fraction of the column. The model surface pressure comes from a short met-only NAME run per day before the main run (`surface_pressure.py`; `prepare.py` chains restore → surface pressure → main). The retrieval's pressure weights, averaging kernel and prior are used unchanged. | The pressure weights belong to the retrieval and define its column; the footprints only supply the model mole fraction for each retrieval layer, and footprint sensitivity depends on height above the ground. With the retrieval's own levels the bottom layer (median 28 hPa thick) usually starts above the model ground (model median 10 hPa higher, 1 Jan 2013) and sometimes below it. Replacing only the bottom boundary (legacy, X9) would stretch the bottom layer by a third or more against its weight. Every level moves by the same fraction of its pressure: median 1%, up to 3.5% (1 Jan 2013). Matt, 2026-11-10. Resolves open question 1. |
+| D20 | 2026-11-10 | **Soundings that can share NAME releases do; nothing is averaged.** Soundings in the same cell and within 60 s of the group's first sounding share one set of releases (`release_groups.py`): at their mean position and time, with the mean of their D19-scaled levels, a box of the footprint plus the members' spread, and the earliest member's sounding ID as the group ID. Every sounding keeps its own XCH4, uncertainty, averaging kernel, pressure weights and surface pressure, and gets its own column footprint from its group's per-level footprints (`release_groups.csv` maps sounding → group). Cells default to the NAME output grid's cells; `Site.release_cell` takes any (dlat, dlon), or None for no sharing. The legacy averaging (`observations.legacy_bin`) stays for validation only. | GOSAT's repeat exposures of one spot are seconds apart and have practically identical footprints. January 2013 GOSAT-1 v10: 1,285 soundings in 660 groups (327 singles, 41 pairs, 292 triples), 11,220 releases instead of 21,845; within a group the surface pressure differs by a median 2.6 hPa. The legacy averaging's problems (X23: unweighted means of kernels and weights, an uncertainty that doesn't shrink) are avoided; whether the soundings of a group have correlated errors, or should be averaged, is left to the inversion. Legacy bins had the grid's spacing but were anchored at the site box's corner, offset from the grid cells by 0.31 (lat) and 0.09 (lon) of a cell. Matt, 2026-11-10. Resolves open question 6. |
+| D21 | 2026-11-11 | **NAME models the retrieval levels whose release layers lie wholly inside the dispersion domain; the prior is used above.** The domain top is 20 km agl for new runs (legacy 19 km), and the number of modelled levels is fixed per product (`releases.MODELLED_LEVELS`: 16 for GOSAT-1 v10.0 and GOSAT-2 v2.0; legacy 17). Every day, the main job stops (`releases.check_modelled_levels`) if (1) the top of the highest modelled layer (D19-scaled) is not below the model pressure at the domain top, which the met-only run now reports per sounding, or (2) the modelled levels carry less than 0.85 of a sounding's column weight (Σ pressure weight × averaging kernel). Once per new product or retrieval version: check on a test day that the top modelled levels carry a negligible share of the column footprint. | Stage 1 (1 Jan 2013, 25 soundings): the column footprint is all below ~14 km (levels 1–13 carry 99.7% pooled, ≥98.8% per sounding), but ~23% comes from the upper troposphere (levels 9–13, deep convection), so a lower cut would lose real surface sensitivity. Above that, the choice only decides whether the model's boundary conditions or the retrieval's prior supply the mole fraction; modelling as much of the column as the domain allows keeps the prior's share (and its uncorrectable error) small: 16 levels carry 0.93 of the weight (Jan 2013 GOSAT-1 min 0.884; GOSAT-2 1 Jan 2020 min 0.887), against 0.79 for a cut at ~12 km. Level 17 (65–30 hPa) lies wholly above the old 19 km top (X10); a fixed count avoids a per-sounding cut, which a column-weight target (e.g. 90%) would give, as it falls among the thin levels 14–17. Upper levels are cheap (3 particles/s). Matt, 2026-11-11. Resolves open question 9. |
 
 ## Deferred options (evaluate after baseline validation)
 - **(a) Weighted release:** one column field per sounding using Source Groups, with particles
@@ -35,24 +37,13 @@ with Matt Rigby unless noted.
 ## Open questions
 Numbers are kept when a question is resolved (see the list below), so references stay valid.
 
-3. **ACRG NAME code modification.** Stock 8.7.1 fate output suffices for footprints, but not for
-   D13: it has no particle index, and duplicate records (X20) cannot be removed reliably. Agreed
-   (2026-11-10): build a patched copy that adds the per-source particle index and fate code to the
-   fate line. Still to decide: where the executable lives (proposed `~/acrg/mattrigby/NAME/`).
 5. **GOSAT-2 footprint size** (legacy uses 10.5 km for GOSAT-1). The GOSAT-2 v2.0 files also say
    "10.5km x 10.5km at nadir", possibly copied from GOSAT-1 (GOSAT-2's is thought to be ~9.7 km).
    Matt is asking Leicester (2026-11-10), together with whether full-precision sounding times
    exist (X22).
-6. **Binning** (legacy: means over 0.234° × 0.352° cells, X23): keep as an option or default?
-   Without it, a month of GOSAT-1 v10 needs about 1.9 times the legacy NAME releases (Jan 2013:
-   21,845 vs 11,526); the legacy binned uncertainty does not shrink with the number averaged.
-9. **Which retrieval levels NAME models** (`max_level`, legacy 17 of 20). The paper's method
-   (Ganesan et al. 2017) uses the prior above the NAME domain, but levels at 80 and 50 hPa are
-   modelled although their releases mostly leave through the 19 km top (~4.5% of the column
-   weight). Options: fewer levels, a pressure ceiling (D5, X10), or proper top-exit accounting
-   (D13).
 10. **Particle numbers for the upper levels.** Legacy releases 3/s above level 12 (180 particles);
-    those releases are the noisiest (stage 1: 10–14% scatter between runs).
+    those releases are the noisiest (stage 1: 10–14% scatter between runs). With D21 this
+    concerns levels 13–16; level 13 still carries ~4% of the column footprint (up to ~12%).
 11. **Domains for new runs.** Matt is re-evaluating them (2026-11-10); no full month is run until
     then.
 12. **Legacy hourly footprints (X3):** which fields format did the legacy hourly (HiTRes) runs
@@ -62,6 +53,15 @@ Numbers are kept when a question is resolved (see the list below), so references
     per-level footprints, who updates the inversion code).
 
 ## Resolved questions
+9. **Which retrieval levels NAME models:** resolved 2026-11-11 by D21 (levels wholly inside a
+   20 km domain: 16 for the GOSAT products; prior above; daily checks).
+6. **Binning:** resolved 2026-11-10 by D20 (soundings in the same output-grid cell and minute share
+   NAME releases; no averaging; cell size configurable).
+3. **ACRG NAME code modification:** resolved 2026-11-10. A patched copy of NAME 8.7.1 adds each
+   particle's per-source index and a fate code to its fate record (X20). It lives at
+   `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid`, readable only by the `gws_name` group (NAME
+   users), with the patch recorded in a local git repository there (never pushed anywhere).
+   Selected with `met.PATCHED_NAME_DIR` (`lotus.write_job_script(name_dir=...)`).
 1. **Bottom-layer surface pressure (X9):** resolved 2026-11-10 by D19 (all levels scaled to the
    model surface pressure, from a met-only NAME run before the main run; no change to the
    pressure weights).

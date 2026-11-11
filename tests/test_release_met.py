@@ -117,7 +117,9 @@ def test_release_met_per_source_pressure_rule():
 def test_surface_pressure_only_blocks():
     from name_satellite.surface_pressure import QUANTITIES
 
-    text = release_met_blocks(release_met_soundings(plan(2)), 0.352, 0.234, QUANTITIES)
+    text = release_met_blocks(release_met_soundings(plan(2)), 0.352, 0.234, QUANTITIES, 20000.0)
     assert "ZArray" not in text  # no release-level grid needed
-    assert text.count(", ReleaseMet_S0001") == 1
+    assert "ZGrid_Top, m agl, 1, 0.0, 20000.0" in text  # domain top (D21)
+    assert "S0001_PT, Pressure (Pa), , , , HGrid_RM1, ZGrid_Top," in text
+    assert text.count(", ReleaseMet_S0001") == 2
     assert "S0002_PS, Pressure (Pa), , , , HGrid_RM1, ZGrid_Ground, TGrid_S0002," in text

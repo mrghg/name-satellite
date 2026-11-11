@@ -56,7 +56,7 @@ class DispersionDomain:
     x_max: float
     y_min: float
     y_max: float
-    z_max_m_agl: float = 19000.0
+    z_max_m_agl: float = 19000.0  # legacy; new runs use 20,000 m (D21, domains.py)
 
 
 @dataclass(frozen=True)

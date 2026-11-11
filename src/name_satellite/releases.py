@@ -117,6 +117,55 @@ def release_layers_pa(pressure_levels_hpa, surface_pressure_hpa=None):
     return centre_pa, thickness_pa
 
 
+# Decision D21: NAME models the levels whose release layers lie wholly inside the dispersion domain
+# (20 km agl top): 16 for the University of Leicester GOSAT-1 v10.0 and GOSAT-2 v2.0 retrievals
+# (layer 16's top, about 65 hPa, is ~1 km below the domain top over Brazil). Levels above use the
+# retrieval's prior in the inversion (Ganesan et al. 2017). The legacy runs released 17 (X10).
+MODELLED_LEVELS = {"GOSAT-1 v10.0": 16, "GOSAT-2 v2.0": 16}
+# Safety net for other retrievals: the modelled levels must carry at least this much of each
+# sounding's column weight (pressure weight x averaging kernel). Jan 2013 GOSAT-1 v10: min 0.884,
+# median 0.929; GOSAT-2 1 Jan 2020: min 0.887.
+MIN_MODELLED_WEIGHT = 0.85
+
+
+def check_modelled_levels(obs, scaled_levels_hpa, domain_top_hpa, n_levels,
+                          min_weight=MIN_MODELLED_WEIGHT):  # fmt: skip
+    """Check, per sounding, that the modelled levels are inside the domain and carry the column.
+
+    D21: (1) the top of the highest modelled release layer (D19-scaled) must be below the domain
+    top, i.e. at a higher pressure than the model pressure there; (2) the modelled levels must
+    carry at least ``min_weight`` of the column weight, Σ pressure weight × averaging kernel.
+
+    Args:
+        obs: observation Dataset (``pressure_weights``, ``xch4_averaging_kernel``).
+        scaled_levels_hpa: (sounding, level) release levels after D19 scaling (hPa).
+        domain_top_hpa: model pressure at the domain top per sounding (hPa; met-only run).
+        n_levels: number of modelled levels.
+        min_weight: smallest acceptable modelled column weight.
+
+    Raises:
+        ValueError naming the soundings that fail.
+    """
+    ids = [str(i) for i in obs["sounding_id"].values]
+    layer_top = np.array([layer_boundaries_hpa(levels)[n_levels] for levels in scaled_levels_hpa])
+    outside = np.flatnonzero(layer_top <= np.asarray(domain_top_hpa))
+    if outside.size:
+        raise ValueError(
+            f"Release layer {n_levels} reaches above the domain top for soundings "
+            f"{[ids[i] for i in outside]}: layer top {layer_top[outside]} hPa, domain top "
+            f"{np.asarray(domain_top_hpa)[outside]} hPa (raise the domain top or model fewer "
+            "levels)"
+        )
+    weight = obs["pressure_weights"].values * obs["xch4_averaging_kernel"].values
+    modelled = weight[:, :n_levels].sum(axis=1)
+    low = np.flatnonzero(modelled < min_weight)
+    if low.size:
+        raise ValueError(
+            f"The {n_levels} modelled levels carry less than {min_weight} of the column weight for "
+            f"soundings {[ids[i] for i in low]}: {modelled[low]} (check the retrieval's levels)"
+        )
+
+
 def particles_per_second(level_number, level_split=12, low_rate=30, high_rate=3):
     """Particle release rate for a level (legacy rule from ``BackRuns_satellite.scr``).
 

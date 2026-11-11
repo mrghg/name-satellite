@@ -248,3 +248,45 @@ def test_fate_file_with_met_columns_keeps_pressure(tmp_path):
     assert particles["source_number"].tolist() == [1, 2]
     assert particles["pressure_pa"].tolist() == [100489.8, 81052.22]
     assert particles["z"].tolist() == [102.2506, 1913.624]
+
+
+# As the ACRG-patched NAME writes it (met.PATCHED_NAME_DIR, X20): particle index and fate code
+# after Z, here with met columns too.
+TINY_FATE_PATCHED = """\
+ NAME III (version 8.7.1)
+ Run name:            fate_test
+
+ Set of particle/puff information: Particles
+ Source,Travel Time (hr),X (Lat-Long),Y (Lat-Long),Z (m agl),Particle Index,Fate Code,  Pressure,
+ 1,43.89711,-19.42067,-16.07199,102.2506,17,8,  100489.8,
+ 2,720,-25.1,-12.3,1913.624,1801,16,  81052.22,
+"""
+
+
+def test_fate_file_from_patched_name(tmp_path):
+    from name_satellite.name_output import read_name_fate_file
+
+    path = tmp_path / "Particles_C1.txt"
+    path.write_text(TINY_FATE_PATCHED)
+    particles, _ = read_name_fate_file(path)
+    assert particles["particle_index"].tolist() == [17, 1801]
+    assert particles["fate_code"].tolist() == [8, 16]
+    assert particles["pressure_pa"].tolist() == [100489.8, 81052.22]
+
+
+def test_drop_repeated_fate_records():
+    from name_satellite.name_output import drop_repeated_fate_records
+
+    particles = pd.DataFrame(
+        {
+            "source_number": [1, 1, 1, 2],
+            "particle_index": [7, 8, 7, 7],
+            "age_hours": [47.99717, 10.0, 47.99995, 3.0],  # particle (1, 7) twice, 10 s apart
+            "fate_code": [8, 16, 8, 8],
+        }
+    )
+    kept = drop_repeated_fate_records(particles)
+    assert kept.index.tolist() == [0, 1, 3]
+    particles.loc[2, "age_hours"] = 49.0  # an hour later: not the known pattern
+    with pytest.raises(ValueError, match="X20"):
+        drop_repeated_fate_records(particles)

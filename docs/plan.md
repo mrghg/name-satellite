@@ -47,14 +47,20 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   per-release weight (deferred option (a)).
 - ☑ Bottom layer (D19): new runs scale every level to the model surface pressure, from a met-only
   NAME run before the main run (`surface_pressure.py`, chained by `prepare.py`); validation runs
-  use the legacy NAME surface pressure (D16). ◐ Effect against the retrieval's own levels on
-  1 Jan 2013: 30-day runs submitted 2026-11-10 (jobs 66679485/6/8,
-  `dev/scripts/prepare_d19_comparison.py`, `compare_d19.py`). 1-h test (jobs 66678616/8): the
+  use the legacy NAME surface pressure (D16). ☑ Effect against the retrieval's own levels on
+  1 Jan 2013 (30-day runs, same seed, jobs 66679485/6/8, `dev/scripts/prepare_d19_comparison.py`,
+  `compare_d19.py`; 46 soundings): column footprint total median +2.6% (5-95% −2.9 to +10.5%),
+  within 2° of the sounding +6.7% (−1.7 to +32%); shape differences at the particle-noise level
+  (16x coarsened: median 5%). 1-h test (jobs 66678616/8): the
   main run's surface pressure equals the pre-run's exactly; no level-1 centre below ground.
-- ☐ Pressure-based release ceiling (D5, X10): any ceiling below the NAME domain top; validate
-  ceiling < domain Z max < met top (about 29 km). Linked to which levels NAME models (open
-  question 9).
-- ☐ Particle numbers for the upper levels (open question 10).
+- ☑ Release groups (D20, `release_groups.py`): soundings in the same output-grid cell and within
+  60 s share one set of releases; each sounding keeps its own values (`release_groups.csv`).
+  ☐ Processing: column footprint per sounding from its group's per-level footprints, retrieval
+  level j ↔ release level j+1 by number (not legacy nearest pressure).
+- ☑ Modelled levels (D21, X10): levels wholly inside a 20 km agl domain (16 for the GOSAT
+  products), prior above; per-sounding checks of the domain top (from the met-only run) and the
+  modelled column weight (≥ 0.85). ☐ Measure the effect against 17 levels / 19 km.
+- ☐ Particle numbers for the upper levels 13–16 (open question 10).
 
 ## Phase 3: NAME input generation and validation ☑ (open items below)
 - ☑ Python writer for NAME 8.7.1 input files (`name_input.py`); sources round-trip exactly and
@@ -98,7 +104,8 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
 - ☑ Job scripts: one per day, met restore as its own job, `afterok` dependencies; a job fails if
   NAME exits non-zero or writes to its error file.
 - ☐ Array jobs, run manifests, restartable (idempotent) months, collected logs.
-- ☐ Patched NAME 8.7.1 build with the particle index and fate code in the fate output (X20).
+- ☑ Patched NAME 8.7.1 build with the particle index and fate code in the fate output (X20;
+  `met.PATCHED_NAME_DIR`, outside the repository). X20 reported to the NAME team (2026-11-11).
 
 ## Phase 5: Reading NAME output ☑ (hourly to do)
 - ☑ Time-integrated fields text files (`name_output.read_fields`; several output groups:

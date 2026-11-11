@@ -22,6 +22,10 @@ import pandas as pd
 
 NAME_GWS = Path("/gws/ssde/j25a/name")
 NAME_DIR = NAME_GWS / "code" / "NAME-8.7.1"
+# ACRG-patched copy of NAME 8.7.1 (X20, open question 3; decided 2026-11-10): its fate records also
+# give each particle's per-source index and a fate code (dev/notes/name-behaviour.md). The copy
+# is NOT in this repository (Met Office licence) and is readable only by the gws_name group.
+PATCHED_NAME_DIR = Path("/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid")
 MET_ARCHIVE = NAME_GWS / "met_archive"
 DEMO_UTILITIES = NAME_GWS / "examples" / "DemoScripts_v8_7_1" / "CommonUtilities"
 

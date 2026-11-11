@@ -45,7 +45,7 @@ One file per satellite product, domain and month, as legacy, named for example
 | `lat` | 357 | cell-centre latitude, degrees_north |
 | `lon` | 190 | cell-centre longitude, degrees_east |
 | `pressure_bin` | ~20 (to decide) | bin centre, Pa, with `pressure_bin_bounds` (D14) |
-| `release_level` | 17 | 1 = surface layer |
+| `release_level` | 16 | 1 = surface layer (16 modelled levels for the GOSAT products, D21) |
 
 Large arrays keep legacy's order, sounding last (e.g. `fp(lat, lon, sounding_id)`), so the
 inversion's reshapes still work. They are zlib-compressed, chunked one sounding per chunk. Lossless
@@ -91,7 +91,7 @@ Enough to trace any file back to its inputs and code, and to check it matches it
 | `product`, `product_version` | UoL GOSAT OCPR, 10.0 |
 | `l2_files` | the L2 file names used, one per day |
 | `domain`, `site` | SOUTHAMERICA, GOSAT-BRAZIL |
-| `max_level` | 17 (levels modelled by NAME; the inversion checks it against the observation file) |
+| `max_level` | 16 (levels modelled by NAME, D21; the inversion checks it against the observation file) |
 | `name_version` | NAME III 8.7.1 |
 | `met` | UMG_Mk6PT |
 | `max_travel_hours`, `integration_window` | 720, all_releases (X18) |
@@ -149,6 +149,10 @@ unchanged on the new files (open question below).
   bands, enough for the stratospheric boundary term?
 - [ ] Write legacy-named copies (`particle_locations_*`, `PBLH`, hPa pressure) during a transition,
   or switch the inversion code in one go?
-- [ ] Store per-level footprints as well as the column (17 times larger), e.g. to test other
+- [ ] Store per-level footprints as well as the column (16 times larger), e.g. to test other
   averaging kernels later?
 - [ ] Who updates the inversion code, and against which branch?
+- [ ] Soundings sharing NAME releases (D20): add `release_group` (sounding_id, text: the group's
+  ID, the sounding ID of its earliest member) so the inversion can treat a group's soundings
+  together (e.g. correlated errors, or its own averaging)? Their footprints are not independent
+  samples: they come from the same particles.

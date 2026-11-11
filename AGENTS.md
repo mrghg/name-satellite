@@ -64,5 +64,7 @@ duplication and **disclosure**. This repository is meant to be shareable, so:
 
 ## Key paths (JASMIN)
 - NAME GWS: `~/name` = `/gws/ssde/j25a/name` (executables and UM met archive)
+- Patched NAME 8.7.1 (X20): `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid`, group `gws_name`
+  only. Its patch is recorded in a local git repository there; never copy it into this repo.
 - ACRG GWS: `/gws/ssde/j25b/acrg`
 - Legacy code: `~/code/NAME_scripts`, `~/code/NAME_processing`, `~/code/acrg` (read-only reference)

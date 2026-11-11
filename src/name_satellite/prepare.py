@@ -21,8 +21,12 @@ Each day has TWO NAME runs, because the release layers are scaled to the model's
 ``write_main_input`` (in the main job, once the surface-pressure run has finished):
   6. reads the model surface pressure and checks it against the retrieval's
      (``surface_pressure.csv``);
-  7. plans the releases (``releases.build_release_plan``), every level scaled to the model
-     surface (D19), and writes ``release_plan.csv``;
+  7. scales every sounding's levels to its model surface pressure (D19), checks that the
+     modelled levels (``releases.MODELLED_LEVELS``) lie inside the domain and carry the column
+     (D21), groups the soundings
+     that share releases (``release_groups``, D20; ``release_groups.csv`` maps each sounding to
+     its group) and plans one set of releases per group (``releases.build_release_plan``,
+     ``release_plan.csv``);
   8. writes the NAME input (with release-point met, X21).
 
 ``prepare_month`` also writes one met-restore job for the whole month and ``submit.sh``, which
@@ -34,7 +38,8 @@ Run folder layout (``WORK/<site>_<product>_<YYYYMM>/``)::
     restore_met.sbatch, submit.sh, summary.csv
     YYYYMMDD/obs_<site>_<YYYYMMDD>.nc, day.json, job.sbatch, output/
     YYYYMMDD/surface_pressure/soundings.csv, input.txt, job.sbatch, output/
-    written by the main job: YYYYMMDD/surface_pressure.csv, release_plan.csv, input.txt
+    written by the main job: YYYYMMDD/surface_pressure.csv, release_groups.csv, release_plan.csv,
+                             input.txt
 
     uv run python -m name_satellite.prepare "GOSAT-1 v10.0" GOSAT-BRAZIL 2013-01 WORK [--test]
     uv run python -m name_satellite.prepare main-input WORK/.../YYYYMMDD   (what the job runs)
@@ -47,6 +52,7 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 
@@ -66,8 +72,14 @@ from name_satellite.observations import (
     to_obs,
     write_obs_file,
 )
+from name_satellite.release_groups import group_soundings, release_points
 from name_satellite.release_met import MAX_SOUNDINGS, release_met_soundings
-from name_satellite.releases import build_release_plan
+from name_satellite.releases import (
+    MODELLED_LEVELS,
+    build_release_plan,
+    check_modelled_levels,
+    scale_to_model_surface,
+)
 from name_satellite.surface_pressure import (
     read_surface_pressure,
     surface_pressure_input_text,
@@ -115,6 +127,27 @@ def release_boxes(obs):
     return (obs["dlon"].values, obs["dlat"].values) if "dlat" in obs else None
 
 
+def grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=None):
+    """Release groups (D20) and their release plan for one day.
+
+    Args:
+        obs: the day's observation Dataset (one entry per sounding).
+        site: the ``domains.Site`` (release cells, footprint size, output grid).
+        n_levels: number of modelled levels (``releases.MODELLED_LEVELS``, D21).
+        pressure_levels_hpa: optional (sounding, level) levels to release at (D19-scaled).
+
+    Returns:
+        (plan, members): the release plan (one set of releases per group; its ``sounding_id`` is
+        the group's ID) and the sounding -> group table.
+    """
+    groups = group_soundings(obs, site.release_cell, site.domain.grid, site.release_group_seconds)
+    points, members = release_points(obs, groups, site.footprint_km, pressure_levels_hpa)
+    boxes = (points["dlon"].values, points["dlat"].values)
+    plan = build_release_plan(points, n_levels=n_levels, footprint_diameter_km=site.footprint_km,
+                              box_degrees=boxes)  # fmt: skip
+    return plan, members
+
+
 def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
     """Prepare one day: observation file, surface-pressure run and the main job.
 
@@ -145,18 +178,22 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
             "test": test}  # fmt: skip
     (run_folder / "day.json").write_text(json.dumps(info, indent=2) + "\n")
 
-    # A provisional plan from the retrieval's own levels: its soundings, times and positions are
-    # final (only the pressures change, D19), so it gives the met-only run and the timing.
+    # Provisional plans from the retrieval's own levels: times and positions are final (only the
+    # pressures change, D19). Per sounding: where the met-only run samples. Grouped (D20): the
+    # number of releases and the run timing.
     obs = to_obs(table)
-    plan = build_release_plan(obs, footprint_diameter_km=site.footprint_km,
-                              box_degrees=release_boxes(obs))  # fmt: skip
+    n_levels = MODELLED_LEVELS[product]
+    sounding_plan = build_release_plan(obs, n_levels=n_levels,
+                                       footprint_diameter_km=site.footprint_km,
+                                       box_degrees=release_boxes(obs))  # fmt: skip
+    plan, members = grouped_release_plan(obs, site, n_levels)
     settings = run_settings(site, run_folder, day, threads, test)
     qos = "debug" if test else "standard"
 
     # The met-only run: model surface pressure at each sounding.
     folder = run_folder / "surface_pressure"
     (folder / "output").mkdir(parents=True)
-    soundings = release_met_soundings(plan)
+    soundings = release_met_soundings(sounding_plan)
     soundings.to_csv(folder / "soundings.csv", index=False)
     sp_settings = surface_pressure_settings(settings, folder / "output")
     (folder / "input.txt").write_text(surface_pressure_input_text(soundings, sp_settings))
@@ -177,6 +214,7 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
     timing = run_timing(plan, settings)  # unaffected by the pressures
     row.update(
         status="prepared",
+        release_groups=members["release_group"].nunique(),
         sources=len(plan),
         met_version=settings.met_version.name,
         met_start=f"{timing['window_start']:%Y-%m-%dT%H:%M}",
@@ -186,12 +224,13 @@ def prepare_day(product, site, day, month_folder, threads=THREADS, test=False):
 
 
 def write_main_input(run_folder):
-    """Write a day's release plan and NAME input from its surface-pressure run (steps 6-8).
+    """Write a day's release groups, release plan and NAME input from its surface-pressure run.
 
     Run by the day's main job after the surface-pressure job (``submit.sh``); can be run by hand.
 
     Writes ``surface_pressure.csv`` (retrieval and model surface pressure, hPa, and their ratio),
-    ``release_plan.csv`` (every level scaled to the model surface, D19) and ``input.txt``.
+    ``release_groups.csv`` (each sounding's release group, D20), ``release_plan.csv`` (one set of
+    releases per group, levels scaled to the model surface, D19) and ``input.txt``.
 
     Raises:
         ValueError if the surface-pressure output is missing, or implausible
@@ -211,16 +250,18 @@ def write_main_input(run_folder):
     surface = surface_pressure_table(obs, model)
     surface.to_csv(run_folder / "surface_pressure.csv", index=False)
 
-    plan = build_release_plan(
-        obs,
-        footprint_diameter_km=site.footprint_km,
-        box_degrees=release_boxes(obs),
-        model_surface_pressure_hpa=surface["model_hpa"].to_numpy(),
-    )
+    levels = obs["pressure_levels"].values
+    scaled = np.array([scale_to_model_surface(levels[p], surface["model_hpa"].iloc[p])
+                       for p in range(len(surface))])  # fmt: skip
+    n_levels = MODELLED_LEVELS[info["product"]]
+    check_modelled_levels(obs, scaled, surface["domain_top_hpa"].to_numpy(), n_levels)
+    plan, members = grouped_release_plan(obs, site, n_levels, pressure_levels_hpa=scaled)
+    members.to_csv(run_folder / "release_groups.csv", index=False)
     plan.to_csv(run_folder / "release_plan.csv", index=False)
     settings = run_settings(site, run_folder, day, info["threads"], info["test"])
     write_name_input(run_folder / "input.txt", plan, settings)
-    print(f"{run_folder}: {len(plan)} releases; model/retrieval surface pressure "
+    print(f"{run_folder}: {len(surface)} soundings in {members['release_group'].nunique()} release "
+          f"groups, {len(plan)} releases; model/retrieval surface pressure "
           f"{surface['ratio'].min():.4f}-{surface['ratio'].max():.4f}")  # fmt: skip
     return plan
 

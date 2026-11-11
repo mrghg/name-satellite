@@ -50,6 +50,7 @@ Avoid putting more than 100,000 files in one directory.
 |---|---|
 | NAME GWS (executables, UM met) | `~/name` = `/gws/ssde/j25a/name` |
 | NAME 8.7.1 | `~/name/code/NAME-8.7.1` (`nameiii_64bit_par.exe`, `nameiii_eccodes_NetCDF_64bit_par.exe`) |
+| NAME 8.7.1, ACRG-patched (fate records with particle index and fate code, X20) | `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid` (group `gws_name` only; built with its own `build_lotus.sbatch`; `met.PATCHED_NAME_DIR`) |
 | UM topography | `/gws/ssde/j25a/name/data/UMTopogData` |
 | ACRG GWS | `/gws/ssde/j25b/acrg` |
 

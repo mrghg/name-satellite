@@ -38,15 +38,21 @@ def test_job_script_fails_on_name_errors(tmp_path):
     assert "python -m name_satellite.met_restore" in restore.read_text()
 
 
-def surface_pressure_output(names, pressures_pa):
-    """A met-only run's output file as NAME 8.7.1 writes it: surface pressure at each location."""
-    rows = [f" 1, {i}, 01/01/2013 15:00 UTC, {n}, {p}," for i, (n, p) in
+def surface_pressure_output(name, names, pressures_pa, top_pa=5000.0):
+    """A met-only run's output file as NAME 8.7.1 writes it: surface pressure and the pressure at
+    the domain top (20,000 m agl) at each location."""
+    rows = [f" 1, {i}, 01/01/2013 15:00 UTC, {n}, {p}, {top_pa}," for i, (n, p) in
             enumerate(zip(names, pressures_pa, strict=True), start=1)]  # fmt: skip
     return "\n".join(
-        [" NAME III (version 8.7.1)", " Fields:", " , , , , ,", " , , , , {req},",
-         " , , , , Pressure (Pa),", " , , , , ,", " , , , , Pa,", " , , , , Z = 0 m agl,",
-         " T Index, Location Index, T, Location, ,", *rows, ""]
+        [" NAME III (version 8.7.1)", " Fields:", " , , , , , ,", f" , , , , {name}_PS, {name}_PT,",
+         " , , , , Pressure (Pa), Pressure (Pa),", " , , , , , ,", " , , , , Pa, Pa,",
+         " , , , , Z = 0 m agl, Z = 20000 m agl,", " T Index, Location Index, T, Location, , ,",
+         *rows, ""]
     )  # fmt: skip
+
+
+# Pressure weights with 0.96 of the column in the 16 modelled levels (D21).
+WEIGHTS = [0.06] * 16 + [0.01] * 4
 
 
 def test_prepare_day_then_main_input(tmp_path, monkeypatch):
@@ -56,11 +62,12 @@ def test_prepare_day_then_main_input(tmp_path, monkeypatch):
         [-10.0, -11.0, 20.0],
         [-50.0, -51.0, -50.0],
         ["2013-01-01 15:00", "2013-01-01 15:00", "2013-01-01 15:01"],
+        pressure_weight=WEIGHTS,
     )
     monkeypatch.setattr(prepare, "download_l2", lambda product, day, cache: l2)
     row = prepare.prepare_day("GOSAT-1 v10.0", GOSAT_BRAZIL, "2013-01-01", tmp_path / "month")
     assert row["status"] == "prepared"
-    assert (row["l2_soundings"], row["soundings"], row["sources"]) == (3, 2, 34)
+    assert (row["l2_soundings"], row["soundings"], row["sources"]) == (3, 2, 32)  # 16 levels
 
     run = tmp_path / "month" / "20130101"
     with xr.open_dataset(run / "obs_GOSAT-BRAZIL_20130101.nc") as f:
@@ -79,9 +86,11 @@ def test_prepare_day_then_main_input(tmp_path, monkeypatch):
     p0 = obs["pressure_levels"].values[:, 0].astype(float) * 100
     model = [p0[0] * 1.01, p0[1] * 0.99]
     for name in ["S0001", "S0002"]:
-        text = surface_pressure_output(["S0001", "S0002"], model).replace("{req}", f"{name}_PS")
+        text = surface_pressure_output(name, ["S0001", "S0002"], model)
         (run / "surface_pressure" / "output" / f"ReleaseMet_{name}_C1.txt").write_text(text)
     plan = prepare.write_main_input(run)
+    groups = pd.read_csv(run / "release_groups.csv", dtype=str)
+    assert groups["release_group"].nunique() == 2  # different grid cells: no shared releases (D20)
     surface = pd.read_csv(run / "surface_pressure.csv")
     assert surface["ratio"].round(6).tolist() == [1.01, 0.99]
     # The level-1 layer now starts at the model surface (D19).
@@ -91,15 +100,18 @@ def test_prepare_day_then_main_input(tmp_path, monkeypatch):
     saved = pd.read_csv(run / "release_plan.csv")
     assert sorted(saved["sounding_id"].astype(str).unique()) == sorted(obs["sounding_id"].values)
     text = (run / "input.txt").read_text()
-    assert text.count("\nSourceID_") == 34
+    assert text.count("\nSourceID_") == 32
     assert "ReleaseMet_S0002" in text  # release-point met requested in the run (X21)
 
     # An implausible model surface pressure stops the job.
-    bad = surface_pressure_output(["S0001", "S0002"], [p0[0] * 1.5, p0[1]])
-    (run / "surface_pressure" / "output" / "ReleaseMet_S0001_C1.txt").write_text(
-        bad.replace("{req}", "S0001_PS")
-    )
+    sp_file = run / "surface_pressure" / "output" / "ReleaseMet_S0001_C1.txt"
+    sp_file.write_text(surface_pressure_output("S0001", ["S0001", "S0002"], [p0[0] * 1.5, p0[1]]))
     with pytest.raises(ValueError, match="Implausible"):
+        prepare.write_main_input(run)
+    # So does a modelled layer reaching above the domain top (here at 70 hPa; layer 16 tops at
+    # about 65 hPa): D21.
+    sp_file.write_text(surface_pressure_output("S0001", ["S0001", "S0002"], model, top_pa=7000.0))
+    with pytest.raises(ValueError, match="above the domain top"):
         prepare.write_main_input(run)
 
 

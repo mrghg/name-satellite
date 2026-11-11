@@ -287,13 +287,19 @@ def read_name_fate_file(path):
     ``RunSettings.fate_met`` NAME also writes met columns (U Ambient, ..., Pressure, ...); of these
     only the pressure is kept.
 
+    The ACRG-patched NAME (``met.PATCHED_NAME_DIR``, X20) adds two columns after Z:
+    ``Particle Index`` (the particle's number within its source, 1 to the number released) and
+    ``Fate Code`` (why it stopped: 8 = left the domain, sides or top; 16 = reached the maximum
+    travel time; codes add if there are several reasons).
+
     Args:
         path: fate file, plain text or ``.gz``.
 
     Returns:
         (particles, z_units): DataFrame with ``source_number`` (1-based NAME source number),
-        ``age_hours``, ``lon``, ``lat``, ``z`` (and ``pressure_pa`` if the file has met columns);
-        and the vertical coordinate name, e.g. "m agl" or "Pa".
+        ``age_hours``, ``lon``, ``lat``, ``z`` (and ``pressure_pa`` if the file has met columns,
+        ``particle_index`` and ``fate_code`` if it comes from the patched NAME); and the vertical
+        coordinate name, e.g. "m agl" or "Pa".
     """
     with _open_text(path) as f:
         lines = f.read().splitlines()
@@ -307,7 +313,9 @@ def read_name_fate_file(path):
     expected = ["Source", "Travel Time (hr)", "X (Lat-Long)", "Y (Lat-Long)"]
     if columns[:4] != expected or not columns[4].startswith("Z ("):
         raise ValueError(f"{path}: unexpected columns {columns}")
-    if len(columns) != 5 and "Pressure" not in columns:
+    patched = columns[5:7] == ["Particle Index", "Fate Code"]
+    n_basic = 7 if patched else 5
+    if len(columns) != n_basic and "Pressure" not in columns:
         raise ValueError(f"{path}: unexpected columns {columns}")
     z_units = columns[4][3:-1]
 
@@ -327,4 +335,41 @@ def read_name_fate_file(path):
     )
     if "Pressure" in columns:
         particles["pressure_pa"] = table["Pressure"].astype(float)
+    if patched:
+        particles["particle_index"] = table["Particle Index"].astype(int)
+        particles["fate_code"] = table["Fate Code"].astype(int)
     return particles, z_units
+
+
+def drop_repeated_fate_records(particles, max_gap_seconds=60.0):
+    """Keep one fate record per particle: its first (X20).
+
+    NAME 8.7.1 writes some particles twice when they leave the domain: a second record one 10-s
+    time step after the first, just before a whole hour of travel (dev/notes/name-behaviour.md).
+    With the patched NAME each record carries the particle's per-source index, so the repeats
+    can be removed exactly; the first record is the exit.
+
+    Args:
+        particles: ``read_name_fate_file`` output from the patched NAME (``particle_index``,
+            ``fate_code``).
+        max_gap_seconds: largest travel-time gap allowed between a particle's records.
+
+    Returns:
+        ``particles`` with one row per (source_number, particle_index), in the original order.
+
+    Raises:
+        ValueError if the file has no particle index, or a particle's records differ in fate
+        code or are further apart than ``max_gap_seconds`` (not the known X20 pattern).
+    """
+    if "particle_index" not in particles:
+        raise ValueError("Needs the patched NAME's particle index (met.PATCHED_NAME_DIR)")
+    key = ["source_number", "particle_index"]
+    repeated = particles[particles.duplicated(key, keep=False)]
+    if len(repeated):
+        groups = repeated.groupby(key)
+        gap_seconds = groups["age_hours"].agg(lambda a: (a.max() - a.min()) * 3600.0)
+        codes = groups["fate_code"].nunique()
+        if (gap_seconds > max_gap_seconds).any() or (codes > 1).any():
+            raise ValueError("Repeated fate records that don't match the known X20 pattern")
+    first = particles.sort_values("age_hours", kind="stable").drop_duplicates(key, keep="first")
+    return particles.loc[sorted(first.index)]

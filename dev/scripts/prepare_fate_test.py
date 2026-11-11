@@ -10,7 +10,10 @@ Questions:
   * D14: is the pressure column present and sensible for every record (lateral exits, top exits,
     particles still inside at the end)?
 
-    uv run python dev/scripts/prepare_fate_test.py WORK_FOLDER
+    uv run python dev/scripts/prepare_fate_test.py WORK_FOLDER [--patched]
+
+``--patched``: run the ACRG-patched NAME (``met.PATCHED_NAME_DIR``), whose fate records also
+carry each particle's per-source index and fate code, so duplicates can be identified exactly.
 """
 
 import sys
@@ -20,7 +23,7 @@ import xarray as xr
 
 from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
-from name_satellite.met import met_version_for_period
+from name_satellite.met import NAME_DIR, PATCHED_NAME_DIR, met_version_for_period
 from name_satellite.name_input import DispersionDomain, OutputGrid, RunSettings, write_name_input
 from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
@@ -32,7 +35,7 @@ DAY = "20130101"
 LEVELS = (1, 9)
 
 
-def main(work):
+def main(work, patched=False):
     work = Path(work)
     if work.exists():
         raise SystemExit(f"{work} already exists; choose a new folder")
@@ -58,11 +61,12 @@ def main(work):
     write_name_input(work / "input.txt", plan, settings)
     plan.to_csv(work / "release_plan.csv", index=False)
     write_job_script(work / "job.sbatch", work, work / "input.txt", threads=1, qos="high",
-                     time="04:00:00", memory="16G", job_name="fate_test")  # fmt: skip
+                     time="04:00:00", memory="16G", job_name="fate_test",
+                     name_dir=PATCHED_NAME_DIR if patched else NAME_DIR)  # fmt: skip
     # NAME releases rate x 60 s + 1 particles per source (legacy files: exactly 60 x rate + 1).
     expected = int((plan["particles_per_second"] * 60 + 1).sum())
     print(f"Prepared {work}: {len(plan)} releases, {expected} particles expected")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], patched="--patched" in sys.argv[2:])

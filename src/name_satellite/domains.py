@@ -34,8 +34,14 @@ class Site:
         name: site name as used in file names (legacy "GOSAT-BRAZIL").
         domain: the ``Domain`` its NAME runs use.
         lat_bounds, lon_bounds: soundings with lower <= value < upper are used (degrees).
-        bin_size: (lat, lon) degrees for ``observations.legacy_bin``, or None for no binning.
+        bin_size: (lat, lon) degrees for the legacy averaging ``observations.legacy_bin``, or
+            None (default) for none. Legacy validation only (X23).
         footprint_km: diameter of a sounding's ground footprint, for the release box.
+        release_cell: which soundings share NAME releases (D20, ``release_groups``): "grid"
+            (default) = soundings in the same NAME output grid cell; (dlat, dlon) = in the same
+            cell of that size (degrees); None = every sounding has its own releases.
+        release_group_seconds: members of a group are within this many seconds of its first
+            sounding (default 60: times are whole minutes rounded down, X22).
     """
 
     name: str
@@ -44,6 +50,8 @@ class Site:
     lon_bounds: tuple
     bin_size: tuple | None = None
     footprint_km: float = 10.5
+    release_cell: object = "grid"
+    release_group_seconds: float = 60.0
 
 
 # South America: output grid of the 2019 mixing-ratio run (legacy input file
@@ -54,12 +62,16 @@ class Site:
 SOUTHAMERICA = Domain(
     name="SOUTHAMERICA",
     grid=OutputGrid(nx=190, ny=357, dx=0.352, dy=0.234, x_min=-91.329, y_min=-60.981),
-    dispersion=DispersionDomain(x_min=-96.329, x_max=-19.449, y_min=-64.981, y_max=27.557),
+    # Top 20 km agl (legacy 19 km): the 16 modelled GOSAT levels then lie wholly inside (D21).
+    dispersion=DispersionDomain(
+        x_min=-96.329, x_max=-19.449, y_min=-64.981, y_max=27.557, z_max_m_agl=20000.0
+    ),
 )
 
 # GOSAT over Brazil: lat/lon box from the 2013 legacy observation file's "bins" attribute.
-# Legacy binned the soundings to the NAME grid (0.234 x 0.352); new runs use single soundings
-# (bin_size None) until the group decides otherwise (decisions.md open question 6).
+# Legacy averaged the soundings in bins of the NAME grid's spacing (0.234 x 0.352, anchored at
+# this box's corner); new runs keep every sounding and let soundings in the same grid cell and
+# minute share releases instead (D20).
 GOSAT_BRAZIL = Site(
     name="GOSAT-BRAZIL",
     domain=SOUTHAMERICA,

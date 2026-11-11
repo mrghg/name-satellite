@@ -177,3 +177,22 @@ def test_plan_scaled_to_model_surface():
     with pytest.raises(ValueError, match="legacy"):
         build_release_plan(obs, surface_pressure_hpa=[1.0, 1.0],
                            model_surface_pressure_hpa=[1.0, 1.0])  # fmt: skip
+
+
+def test_check_modelled_levels():
+    # D21: the modelled layers must lie inside the domain and carry enough column weight.
+    from name_satellite.releases import check_modelled_levels
+
+    levels = np.array([[1000.0, 800.0, 600.0, 400.0, 200.0]])
+    good = xr.Dataset(
+        {
+            "pressure_weights": (("s", "lev"), [[0.3, 0.3, 0.3, 0.05, 0.05]]),
+            "xch4_averaging_kernel": (("s", "lev"), [[1.0] * 5]),
+        },
+        coords={"sounding_id": ("s", ["A"])},
+    )
+    check_modelled_levels(good, levels, [400.0], n_levels=3)  # layer 3 tops at 500 hPa: inside
+    with pytest.raises(ValueError, match="above the domain top"):
+        check_modelled_levels(good, levels, [550.0], n_levels=3)
+    with pytest.raises(ValueError, match="column weight"):
+        check_modelled_levels(good, levels, [100.0], n_levels=2)  # 0.6 < 0.85

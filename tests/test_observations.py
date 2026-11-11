@@ -21,7 +21,7 @@ LEVELS = np.array([990.0, 940, 870, 800, 730, 650, 580, 510, 440, 370, 300, 230,
                    50, 10, 1, 0.1], dtype=np.float32)  # fmt: skip
 
 
-def write_l2(path, lats, lons, times, quality=None, pressure=None):
+def write_l2(path, lats, lons, times, quality=None, pressure=None, pressure_weight=None):
     """A small UoL-style L2 file (n soundings × 20 levels)."""
     n = len(lats)
     pressure = np.tile(LEVELS, (n, 1)) if pressure is None else pressure
@@ -36,7 +36,12 @@ def write_l2(path, lats, lons, times, quality=None, pressure=None):
             "xch4_quality_flag": ("n", np.zeros(n, np.int8) if quality is None else quality),
             "retr_flag": ("n", np.zeros(n, np.int8)),
             "pressure_levels": (("n", "m"), pressure),
-            "pressure_weight": (("n", "m"), np.full((n, 20), 0.05, dtype=np.float32)),
+            "pressure_weight": (
+                ("n", "m"),
+                np.full((n, 20), 0.05, dtype=np.float32)
+                if pressure_weight is None
+                else np.tile(np.asarray(pressure_weight, dtype=np.float32), (n, 1)),
+            ),
             "xch4_averaging_kernel": (("n", "m"), np.ones((n, 20), dtype=np.float32)),
             "ch4_profile_apriori": (("n", "m"), np.full((n, 20), 1800.0, dtype=np.float32)),
         },

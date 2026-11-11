@@ -17,10 +17,15 @@ are skipped), selects the good soundings in the site's box (`domains.py`), write
 file (keyed by sounding ID) and `day.json`, and writes two NAME jobs:
 
 1. a **met-only surface-pressure run** (`surface_pressure.py`; 1 thread, minutes): the model's
-   surface pressure at each sounding's position and time, needed to scale the release layers (D19);
+   surface pressure at each sounding's position and time, needed to scale the release layers (D19),
+   and the pressure at the domain top (20 km agl), to check the modelled layers lie inside (D21);
 2. the **main job**, which first runs `python -m name_satellite.prepare main-input DAYFOLDER`
    (`write_main_input`: reads the surface pressure, checks model / retrieval is within 0.9-1.1,
-   writes `surface_pressure.csv`, `release_plan.csv` and `input.txt`) and then runs NAME.
+   scales each sounding's levels (D19), checks that the modelled levels (16 for the GOSAT products)
+   lie inside the domain and carry at least 0.85 of the column weight (D21), groups the soundings
+   that share releases (D20), and writes
+   `surface_pressure.csv`, `release_groups.csv`, `release_plan.csv` and `input.txt`) and then runs
+   NAME.
 
 It also writes one met-restore job for the month and `submit.sh`, which chains restore → each day's
 surface-pressure job → that day's main job (`afterok`: a job starts only if the one before
@@ -58,7 +63,13 @@ horizontal box (the footprint size), a 60 s release time and a particle rate.
 Layers run between the midpoints of neighbouring retrieval levels. The lowest layer starts at the
 surface. For new runs every level is first scaled by model / retrieval surface pressure
 (`scale_to_model_surface`, D19), so the layers follow the model's terrain and keep their shares of
-the column; the model surface pressure comes from the met-only run (`surface_pressure.py`). Legacy
+the column; the model surface pressure comes from the met-only run (`surface_pressure.py`).
+Soundings in the same NAME output-grid cell and within 60 s of each other (GOSAT's repeat
+exposures) then share one set of releases (`release_groups.py`, D20): mean position, time and
+scaled levels; box = footprint + spread; ID = earliest member's sounding ID. Nothing is averaged
+in the observations: each sounding gets its own column footprint later, from its group's
+per-level footprints and its own weights. `Site.release_cell` sets the cells ("grid", a
+(dlat, dlon) size, or None). Legacy
 validation runs instead replace level 0 by the legacy NAME surface pressure (D16, X9). Legacy
 details: `dev/notes/gosat-l2-and-preprocessing.md`.
 
