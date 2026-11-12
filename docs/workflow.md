@@ -140,7 +140,7 @@ end of the run. Edge and top exits are stored as histograms of *fractions of the
 for particles still inside only their fraction is stored. All categories together sum to exactly 1. The inversion multiplies these by a global model's mole
 fractions to get the background, and decides how to treat top exits and particles still inside.
 
-## 6. Footprints, boundary histograms and column combination *(legacy method done)*
+## 6. Footprints, boundary histograms and column combination *(legacy method done; new runs: `processing.py`)*
 **In:** the per-level footprints and the sounding table. **Out:** one footprint per sounding,
 Σ over levels of (pressure weight × averaging kernel × level footprint), written in the netCDF
 format the inversion reads (legacy `fp` format and/or `srr`), with `max_level` recorded.
@@ -158,7 +158,25 @@ Modules, in order:
 Result: 1 Jan 2013 production footprints rebuilt **bit for bit** (every variable;
 `tests/test_processing.py`). The "2025" histogram variant also matches today's legacy code exactly.
 
-Writing: `write_legacy_fp_file` writes the legacy layout. `rounding="legacy"` reproduces the 2019
+New runs (`processing.py`, D13, D23, D24): `process_day` reads a day's run folder (observations,
+`release_groups.csv`, `release_plan.csv`, fields, patched fate records, release met) and returns one
+column per sounding:
+- 6a: each release's footprint from its field, as above;
+- 6b: `classify_fates` puts every particle in one fate (a side face, the top, or still inside)
+  from its last position; `release_fates` turns them into fractions of the particles released
+  (counted from the fate records): side faces by height above ground (20 bins of 1 km) × nearest
+  grid cell along the edge, the top by nearest grid cell, "inside" as a number, with the mean
+  travel time per bin. Each release's fates sum to exactly 1, and the processing stops if not;
+- 6c: sounding s gets Σ_j w_sj × (its group's level-j value), w = pressure weight × averaging
+  kernel over the 16 modelled levels, release level j matched to retrieval level j by number;
+  the column fates then sum to Σ_j w_sj (checked);
+- met of the group's lowest release, the release box and layers, and the particles released.
+`assemble` (via `process_month`) sorts a month's soundings by time and ID and sets
+`footprint_index` (one footprint per sounding); `write_footprint_file` writes the spec's file
+(BitRound 10 bits on the large arrays). Command:
+`uv run python -m name_satellite.processing MONTH_FOLDER OUT_FOLDER [--days=YYYYMMDD,...]`.
+
+Writing (legacy layout): `write_legacy_fp_file` writes the legacy layout. `rounding="legacy"` reproduces the 2019
 files' lossy rounding (`least_significant_digit`), which biases column totals low by 0-1.4%;
 `rounding="none"` stores full float32 values and is the setting for new footprints (X7).
 

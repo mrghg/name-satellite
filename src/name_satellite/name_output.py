@@ -341,18 +341,22 @@ def read_name_fate_file(path):
     return particles, z_units
 
 
-def drop_repeated_fate_records(particles, max_gap_seconds=60.0):
+def drop_repeated_fate_records(particles, max_gap_seconds=360.0):
     """Keep one fate record per particle: its first (X20).
 
-    NAME 8.7.1 writes some particles twice when they leave the domain: a second record one 10-s
-    time step after the first, just before a whole hour of travel (dev/notes/name-behaviour.md).
-    With the patched NAME each record carries the particle's per-source index, so the repeats
-    can be removed exactly; the first record is the exit.
+    NAME 8.7.1 writes some particles twice when they leave the domain: a second record one
+    particle time step after the first, with the same fate (dev/notes/name-behaviour.md). The
+    step varies: 10 s in a 2-source test, 180 s for every repeat in a 30-day, 352-source run. The
+    first record is always outside the domain (the second is sometimes back inside), so it is the
+    exit. With the patched NAME each record carries the particle's per-source index, so the
+    repeats can be removed exactly.
 
     Args:
         particles: ``read_name_fate_file`` output from the patched NAME (``particle_index``,
             ``fate_code``).
-        max_gap_seconds: largest travel-time gap allowed between a particle's records.
+        max_gap_seconds: largest travel-time gap allowed between a particle's records (s). The
+            default is our runs' 6-min sync time (``name_input.RunSettings.sync_minutes``): a
+            particle's time step is never longer.
 
     Returns:
         ``particles`` with one row per (source_number, particle_index), in the original order.

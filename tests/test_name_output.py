@@ -279,14 +279,15 @@ def test_drop_repeated_fate_records():
 
     particles = pd.DataFrame(
         {
-            "source_number": [1, 1, 1, 2],
-            "particle_index": [7, 8, 7, 7],
-            "age_hours": [47.99717, 10.0, 47.99995, 3.0],  # particle (1, 7) twice, 10 s apart
-            "fate_code": [8, 16, 8, 8],
+            "source_number": [1, 1, 1, 2, 2],
+            "particle_index": [7, 8, 7, 7, 7],
+            # particle (1, 7) twice, 10 s apart; particle (2, 7) twice, 180 s apart (30-day run)
+            "age_hours": [47.99717, 10.0, 47.99995, 51.03133, 50.98133],
+            "fate_code": [8, 16, 8, 8, 8],
         }
     )
     kept = drop_repeated_fate_records(particles)
-    assert kept.index.tolist() == [0, 1, 3]
-    particles.loc[2, "age_hours"] = 49.0  # an hour later: not the known pattern
+    assert kept.index.tolist() == [0, 1, 4]  # the earlier record of each pair
+    particles.loc[2, "age_hours"] = 49.0  # an hour later: longer than a sync step
     with pytest.raises(ValueError, match="X20"):
         drop_repeated_fate_records(particles)

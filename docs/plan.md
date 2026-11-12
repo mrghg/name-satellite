@@ -129,7 +129,15 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   (D23): draft in [footprint-file-spec.md](footprint-file-spec.md), under review by the group (supersedes D4 once
   agreed). Then: processing of new runs into it, and the inversion's reading switched to
   `sounding_id` (with the group).
-- ☐ Improved boundary sensitivities (D13, D24: heights above ground in the site files' 1 km bins), after X20. Normalise by the particles released
+- ☑ Processing of new runs into the new format (`processing.py`): written and unit-tested; run on
+  the 1-hour smoke test and on a full 30-day test day (1 Jan 2013, GOSAT-1 v10, 46 soundings,
+  patched NAME, 2026-11-12): fates sum to the column weight within 3e-5 for every sounding; 2.7 MB
+  file, 17 s on LOTUS2. Against the legacy production file for that day (v7.2 soundings, nearest
+  match within 10 min and 1°): shares of the side exits by face agree to 0.003 (correlation
+  1.00), footprint totals 2% higher (median; 0.4–6.8%, 10–90%). Two fate-file behaviours found
+  and handled (X20 entry): repeats 180 s apart, and exits exactly on the edge as printed.
+- ☑ Improved boundary sensitivities (D13, D24: heights above ground in the site files' 1 km bins),
+  in `processing.py`. Normalise by the particles released
   as counted in the fate records (a 10/s release gives 600, not 601: dev/notes/name-behaviour.md).
 - ☐ `srr` output (D4).
 

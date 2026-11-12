@@ -31,6 +31,17 @@ repository.
     identical to the stock build, every particle present, and 115 particles written exactly twice:
     10 s apart, both "left the domain", just before a whole hour of travel. Keeping each
     particle's first record removes them exactly (`name_output.drop_repeated_fate_records`).
+  - 30-day test day with the patched build (1 Jan 2013, GOSAT-BRAZIL, 352 sources, 6-min sync
+    time; procdev_20261112): 545,179 records; 8,929 particles (1.7%) written exactly twice, both
+    "left the domain", but **180 s apart in every case** (not 10 s), and only 5% of pairs straddle
+    a whole hour of travel. The first record is always outside the domain; the second is back
+    inside it in 4.5% of pairs. So the gap is one particle time step, which varies; the first
+    record is the exit. `drop_repeated_fate_records` allows gaps up to the sync time.
+  - Fate codes are bit flags: one particle in that run has code 24 (= 8 + 16), at exactly the
+    maximum travel time and beyond the east edge: it left on its last step. Treated as an exit.
+  - In the same run 31 "left the domain" records lie exactly on the east edge as printed (positions
+    have 5 decimal places), so beyond it by less than the printed precision. Counted as exits
+    through that edge (`processing.classify_fates`).
 
 ## Limits met in our runs
 - Footprint field requests: at most 3,000 per output time, so at most 3,000 sources per run.

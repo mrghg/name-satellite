@@ -120,6 +120,7 @@ levels NAME models, as now (Ganesan et al. 2017, eq. 5).
 | `column_weight` | sounding_id, release_level | 1 | pressure weight × averaging kernel for each modelled level | new |
 | `release_pressure` | sounding_id, release_level | hPa | centre of each release layer | replaces `release_height` |
 | `release_thickness` | sounding_id, release_level | hPa | thickness of each release layer | new |
+| `particles_released` | sounding_id, release_level | 1 | NAME particles released at each level, counted from the fate records | new |
 
 The met is that of the group's shared release, so it is the same for all members of a group.
 
