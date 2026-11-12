@@ -113,7 +113,7 @@ particle left the domain.
 New runs (`prepare.py`): the main run uses the ACRG-patched NAME 8.7.1 (`met.PATCHED_NAME_DIR`,
 outside the repository), whose fate records also give each particle's index within its source and
 its fate code (X20), and asks for met columns in the fate records, so each fate has a pressure
-(D14). The met-only surface-pressure run uses the stock NAME 8.7.1.
+(D14). The boundary bins are now heights above ground in the site files' 1 km bins (D24). The met-only surface-pressure run uses the stock NAME 8.7.1.
 
 ## 5. Read NAME output *(in progress: `name_satellite/name_output.py`, `legacy.py`)*
 **In:** NAME fields and particle files. **Out:** for each release, a footprint (sensitivity of the

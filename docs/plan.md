@@ -125,11 +125,11 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   `boundary_histograms.py`, `column.py`, `legacy_pipeline.py`): reproduces the production `fp` file
   for all of January 2013 (26 days bit-identical, 5 with one cell one rounding step off).
 - ☑ Lossless storage option (X7).
-- ◐ New footprint file format keyed by `sounding_id`: draft in
-  [footprint-file-spec.md](footprint-file-spec.md), under review by the group (supersedes D4 once
+- ◐ New footprint file format keyed by `sounding_id`, following the group's site footprint files
+  (D23): draft in [footprint-file-spec.md](footprint-file-spec.md), under review by the group (supersedes D4 once
   agreed). Then: processing of new runs into it, and the inversion's reading switched to
   `sounding_id` (with the group).
-- ☐ Improved boundary sensitivities (D13, D14), after X20. Normalise by the particles released
+- ☐ Improved boundary sensitivities (D13, D24: heights above ground in the site files' 1 km bins), after X20. Normalise by the particles released
   as counted in the fate records (a 10/s release gives 600, not 601: dev/notes/name-behaviour.md).
 - ☐ `srr` output (D4).
 

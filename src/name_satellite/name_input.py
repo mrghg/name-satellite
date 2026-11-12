@@ -85,9 +85,9 @@ class RunSettings:
     random_seed: str = "Fixed"  # legacy used "Random (Parallel)"; "Fixed" makes runs repeatable
     min_bl_depth_m: float = 40.0  # legacy; the NAME demo declarations use 100 m
     surface_layer_depth_m: float = 40.0  # footprint layer 0-40 m (legacy ZGrid1)
-    fate_z_coord: str = "m agl"  # legacy; decision D14 will switch to "Pa"
+    fate_z_coord: str = "m agl"  # legacy and D24 (boundary bins in m agl)
     # Add NAME's met columns (incl. Pressure, Pa) to each fate record: with fate_z_coord "m agl"
-    # this gives both the height (to find top exits) and the pressure (D14 bins).
+    # this gives both the height (to find top exits) and the pressure (D14; superseded by D24).
     fate_met: bool = False
     integration: str = "all_releases"  # or "legacy_2019" (X18)
     # Request met at the release points in this run (release_met.py). Legacy used a separate run.

@@ -51,7 +51,8 @@ Run folder layout (``WORK/<site>_<product>_<YYYYMM>/``)::
 
 The main run uses the ACRG-patched NAME 8.7.1 (``met.PATCHED_NAME_DIR``), whose fate records carry
 each particle's index and fate code (X20), and asks for met columns (incl. pressure, Pa) in the
-fate records (D14). The met-only run uses the stock NAME 8.7.1.
+fate records (D14; the boundary bins are now heights above ground, D24). The met-only run
+uses the stock NAME 8.7.1.
 """
 
 import dataclasses
@@ -124,7 +125,7 @@ def run_settings(site, run_folder, day, threads, test):
         met_version=met_version,
         met_folder=str(MET_ROOT / met_version.name),
         threads=threads,
-        fate_met=True,  # pressure (Pa) of each particle's fate, for the D14 pressure bins
+        fate_met=True,  # met (incl. pressure, Pa) at each particle's fate (D14, superseded by D24)
     )
     if test:
         settings = dataclasses.replace(settings, max_age_hours=1)
