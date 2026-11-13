@@ -19,7 +19,7 @@ Writes ``<work>/run_<X>/fp_20130101_legacy_processing.nc`` and prints:
        * per-release footprint totals by level (from the raw fields), including the mean
          B/production ratio with its standard error (a bias test).
 
-    uv run python dev/scripts/process_stage1.py /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
+    uv run python dev/scripts/legacy_validation/process_stage1.py /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
 """
 
 import sys
@@ -29,20 +29,20 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from name_satellite.legacy import read_legacy_met_folder, read_name_input_sources
-from name_satellite.legacy_pipeline import (
-    legacy_particles_from_fate,
-    process_legacy_inputs,
-    write_legacy_fp_file,
-)
 from name_satellite.name_output import read_fields, read_name_fate_file
-from name_satellite.refdata import ref_path
-from name_satellite.validation import (
+from name_satellite.validation.compare import (
     histogram_difference,
     near_field_ratio,
     shape_difference,
     total_ratio,
 )
+from name_satellite.validation.legacy_files import read_legacy_met_folder, read_name_input_sources
+from name_satellite.validation.legacy_pipeline import (
+    legacy_particles_from_fate,
+    process_legacy_inputs,
+    write_legacy_fp_file,
+)
+from name_satellite.validation.refdata import ref_path
 
 LEGACY_RUN = ref_path("mr2019_input").parents[1]
 TAG = "SOUTHAMERICA_GOSAT-BRAZIL_column_20130101"

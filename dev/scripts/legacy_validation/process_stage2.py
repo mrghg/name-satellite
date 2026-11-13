@@ -16,7 +16,7 @@ differ for soundings released later than the day's first (X18), so "identical?" 
 for the day's EARLY soundings (released within 10 min of the first). For 1 Jan the batch is
 compared with stage 1 run A, which has the corrected window too.
 
-    uv run python dev/scripts/process_stage2.py \
+    uv run python dev/scripts/legacy_validation/process_stage2.py \
         /work/scratch-pw5/mattrigby/name-satellite/stage2_20261109 \
         /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
 """
@@ -29,15 +29,15 @@ import pandas as pd
 import xarray as xr
 
 from name_satellite.batching import split_batched_output
-from name_satellite.legacy import read_legacy_met_folder
-from name_satellite.legacy_pipeline import (
+from name_satellite.name_output import read_fields_folder, read_name_fate_file
+from name_satellite.validation.compare import histogram_difference, shape_difference, total_ratio
+from name_satellite.validation.legacy_files import read_legacy_met_folder
+from name_satellite.validation.legacy_pipeline import (
     legacy_particles_from_fate,
     process_legacy_inputs,
     write_legacy_fp_file,
 )
-from name_satellite.name_output import read_fields_folder, read_name_fate_file
-from name_satellite.refdata import ref_path
-from name_satellite.validation import histogram_difference, shape_difference, total_ratio
+from name_satellite.validation.refdata import ref_path
 
 LEGACY_RUN = ref_path("conc2018_input").parents[1]
 RUN_NAME = "SOUTHAMERICA_GOSAT-BRAZIL_column"

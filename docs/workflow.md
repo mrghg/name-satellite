@@ -6,9 +6,11 @@ detail. To run it yourself and look at every file on the way, follow
 [run-a-day.md](run-a-day.md).
 
 There are two tracks. **New runs** (`prepare.py` → NAME → `processing.py`) are what we will
-produce. **Legacy validation** (`legacy_pipeline.py` and the modules it uses) reproduces the
-legacy pipeline exactly, so that every difference in the new runs is deliberate and logged
-([deviations.md](deviations.md)). Both share steps 1–5.
+produce; every module they use is directly in `src/name_satellite/`. **Legacy validation**
+(`validation/legacy_pipeline.py` and the modules beside it in `src/name_satellite/validation/`)
+reproduces the legacy pipeline exactly, so that every difference in the new runs is deliberate
+and logged ([deviations.md](deviations.md)). Both share steps 1–5. A reviewer of the new runs can
+skip `validation/` and `dev/scripts/`.
 
 ```
  Satellite L2 files ─► 1. Read soundings ─► 2. Plan releases ─► 3. Write NAME inputs
@@ -60,7 +62,7 @@ flags, and per-level pressure (hPa, surface first), pressure weight, averaging k
    with legacy files only; they refuse repeated times (X22).
 
 Checked against the legacy `acrg.satellite.gosat` on ESA CCI v7.0 files for 1 and 7 Jan 2013
-(`dev/scripts/run_legacy_gosat.py`, `compare_observations_with_legacy.py`): same soundings, values
+(`dev/scripts/legacy_validation/run_legacy_gosat.py`, `compare_observations_with_legacy.py`): same soundings, values
 identical, unbinned and binned. The legacy code cannot read v10 or GOSAT-2 files (X22).
 
 ## 2. Plan releases *(`name_satellite/releases.py`, `release_groups.py`)*
@@ -127,7 +129,7 @@ its fate code (X20). The fate records give heights in m above the model ground, 
 processing bins in the site files' 1 km bins (D24); no met columns are requested in them.
 The met-only surface-pressure run uses the stock NAME 8.7.1.
 
-## 5. Read NAME output *(`name_satellite/name_output.py`; legacy formats: `legacy.py`)*
+## 5. Read NAME output *(`name_satellite/name_output.py`; legacy formats: `validation/legacy_files.py`)*
 **In:** NAME fields and particle files. **Out:** for each release, a footprint (sensitivity of the
 mole fraction at the release to surface fluxes, (mol/mol)/(mol/m²/s)), counts of particles leaving
 through each boundary (for boundary conditions) and the met at the release point.
@@ -135,7 +137,7 @@ Everything is matched by release ID, never by order.
 
 Done: `read_fields` (NAME text fields → array over source × lat × lon, keyed by source name;
 missing all-zero rows restored), `read_acrg_particle_file` (legacy particle fates), and legacy
-release-point met (`legacy.read_legacy_met_folder`). Tested on every day of January 2013. Stock
+release-point met (`legacy_files.read_legacy_met_folder`). Tested on every day of January 2013. Stock
 NAME 8.7.1 fate files: `read_name_fate_file`, turned into the legacy particle table by
 `legacy_pipeline.legacy_particles_from_fate` (heights in m agl). Still to do: hourly fields.
 
@@ -160,11 +162,11 @@ format the inversion reads (legacy `fp` format and/or `srr`), with `max_level` r
 Modules, in order:
 - `footprints.py` (6a): `grid_cell_area_m2`, `footprint_from_mixing_ratio`: field [ppm s] × 1e-6 ×
   cell area / release duration → (mol/mol)/(mol/m²/s).
-- `boundary_histograms.py` (6b): `legacy_boundary_histograms` (variants "2019" and "2025"; legacy
+- `validation/boundary_histograms.py` (6b): `legacy_boundary_histograms` (variants "2019" and "2025"; legacy
   validation only: the D13 method for new runs is in `processing.py`).
-- `column.py` (6c): `nearest_release_levels` (legacy nearest-pressure rule) and `combine_levels`
+- `validation/column.py` (6c): `nearest_release_levels` (legacy nearest-pressure rule) and `combine_levels`
   (Σ footprint × pressure weight × averaging kernel over levels below `max_level`).
-- `legacy_pipeline.py`: `process_day_legacy` chains steps 5–6 exactly as legacy (reading a legacy run folder; `process_legacy_inputs` is the same processing for data already read, e.g. NAME 8.7.1 runs);
+- `validation/legacy_pipeline.py`: `process_day_legacy` chains steps 5–6 exactly as legacy (reading a legacy run folder; `process_legacy_inputs` is the same processing for data already read, e.g. NAME 8.7.1 runs);
   `write_legacy_fp_file` writes the 2019 file layout and encoding.
 
 Result: 1 Jan 2013 production footprints rebuilt **bit for bit** (every variable;
@@ -198,7 +200,7 @@ Each step is first checked against the legacy pipeline's output for GOSAT-BRAZIL
 ([deviations.md](deviations.md)).
 
 NAME is a Monte Carlo model, so new runs are compared with legacy statistically:
-`validation.py` gives the measures (total ratios, footprint shape differences at several grid
+`validation/compare.py` gives the measures (total ratios, footprint shape differences at several grid
 coarsenings, edge-histogram differences), and each is set beside the same measure for two runs
-that differ only in their random seed (pure particle noise). Scripts: `dev/scripts/process_stage1.py`
+that differ only in their random seed (pure particle noise). Scripts: `dev/scripts/legacy_validation/process_stage1.py`
 (1 Jan 2013) and `process_stage2.py` (1–7 Jan, including the batching test).

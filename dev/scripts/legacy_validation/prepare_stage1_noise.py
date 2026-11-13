@@ -7,7 +7,7 @@ reproduces legacy, B - production should be no larger than B - B2.
 Writes <work>/run_B2/{input.txt, job.sbatch, output/} into an existing stage 1 folder, after
 checking that every met file the run needs is already restored (no restore job this time).
 
-    uv run python dev/scripts/prepare_stage1_noise.py /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
+    uv run python dev/scripts/legacy_validation/prepare_stage1_noise.py /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
 """
 
 import sys
@@ -16,7 +16,6 @@ from pathlib import Path
 import pandas as pd
 import xarray as xr
 
-from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
 from name_satellite.met import met_version_for_period, required_met_files
 from name_satellite.name_input import (
@@ -26,8 +25,12 @@ from name_satellite.name_input import (
     run_timing,
     write_name_input,
 )
-from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
+from name_satellite.validation.legacy_files import (
+    legacy_surface_pressure_hpa,
+    read_name_input_sources,
+)
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 

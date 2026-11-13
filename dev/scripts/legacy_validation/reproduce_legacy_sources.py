@@ -7,13 +7,13 @@ Finding (2026-11-06): levels 3-17 match using the GOSAT pressure levels alone; l
 when p0 is replaced by a surface pressure inferred from the input (the legacy NAME surface-pressure
 run, use_name_pressure=True).
 
-Run:  uv run python dev/scripts/reproduce_legacy_sources.py
+Run:  uv run python dev/scripts/legacy_validation/reproduce_legacy_sources.py
 """
 
 import numpy as np
 import xarray as xr
 
-from name_satellite.refdata import ref_path
+from name_satellite.validation.refdata import ref_path
 
 N_LEVELS = 17
 

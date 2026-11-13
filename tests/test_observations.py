@@ -133,7 +133,7 @@ def test_to_legacy_obs_refuses_duplicate_times(tmp_path):
 # Against the legacy preprocessing (acrg.satellite.gosat) on the same L2 files
 # ---------------------------------------------------------------------------------------------
 
-LEGACY_LAT_BOUNDS = (-35.753, 7.251)  # dev/scripts/run_legacy_gosat.py
+LEGACY_LAT_BOUNDS = (-35.753, 7.251)  # dev/scripts/legacy_validation/run_legacy_gosat.py
 LEGACY_LON_BOUNDS = (-75.984, -32.793)
 LEGACY_BIN_SIZE = (0.234, 0.352)
 COMPARED = [

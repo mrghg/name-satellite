@@ -9,7 +9,6 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from name_satellite.legacy import read_name_input_sources
 from name_satellite.releases import (
     PARTICLE_RATES,
     build_release_plan,
@@ -17,6 +16,7 @@ from name_satellite.releases import (
     particles_per_second,
     release_layers_pa,
 )
+from name_satellite.validation.legacy_files import read_name_input_sources
 
 # ---------------------------------------------------------------------------------------------
 # Small hand-checkable cases

@@ -5,7 +5,7 @@ writing its fields: all 2,720 releases were in one output group, and NAME allows
 characters per output line (about 2,218 releases). The input writer now splits the field requests
 into output groups of at most 2,000 (name_input.fields_output_group).
 
-    uv run python dev/scripts/prepare_stage2_batch.py RUN_FOLDER [--test]
+    uv run python dev/scripts/legacy_validation/prepare_stage2_batch.py RUN_FOLDER [--test]
 
 --test: particles travel 1 h only, debug queue (minutes): checks that the split output is written
 and reads back, before spending 8 h on the full run. The met is the shared, already restored

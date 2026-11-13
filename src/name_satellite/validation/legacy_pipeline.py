@@ -30,11 +30,11 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from name_satellite.boundary_histograms import legacy_boundary_histograms
-from name_satellite.column import column_weights, combine_levels, nearest_release_levels
 from name_satellite.footprints import footprint_from_mixing_ratio, grid_cell_area_m2
-from name_satellite.legacy import legacy_grid_coordinates, read_legacy_met_folder
 from name_satellite.name_output import read_acrg_particle_file, read_fields
+from name_satellite.validation.boundary_histograms import legacy_boundary_histograms
+from name_satellite.validation.column import column_weights, combine_levels, nearest_release_levels
+from name_satellite.validation.legacy_files import legacy_grid_coordinates, read_legacy_met_folder
 
 LEVELS_PER_SOUNDING = 17  # legacy upper_level
 

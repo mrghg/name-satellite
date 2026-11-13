@@ -9,7 +9,7 @@ legacy production file for January 2013, and writes two PNGs:
 
 The style follows make_slide_figures.py. matplotlib and cartopy are not project dependencies:
 
-    uv run --with matplotlib --with cartopy python dev/scripts/make_newrun_figures.py \
+    uv run --with matplotlib --with cartopy python dev/scripts/figures/make_newrun_figures.py \
         NEW_FILE OUTPUT_FOLDER
 """
 
@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from name_satellite.refdata import ref_path
+from name_satellite.validation.refdata import ref_path
 
 FP_UNITS = "(mol/mol) / (mol m⁻² s⁻¹)"
 FACES = {"n": "North", "e": "East", "s": "South", "w": "West"}

@@ -10,7 +10,7 @@ scratch folder (uv pip install --target, never into the system):
 
     module load jaspy/3.12/v20250704
     PYTHONPATH=/work/scratch-pw5/mattrigby/name-satellite/legacy_pydeps_20261109:~/code/acrg \
-        python dev/scripts/run_legacy_gosat.py L2_FILE OUTPUT_FOLDER
+        python dev/scripts/legacy_validation/run_legacy_gosat.py L2_FILE OUTPUT_FOLDER
 
 Writes, under OUTPUT_FOLDER (which must not exist yet), the dataset that gosat_process_file
 returns after filtering and binning (before its own file writer, which fails with today's xarray

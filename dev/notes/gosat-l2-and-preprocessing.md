@@ -54,7 +54,7 @@ With p = level pressures and Δᵢ = pᵢ − pᵢ₊₁:
 float precision (Z rel. diff 7e-8, dZ 4e-7, X/Y 5e-11) **only** with the NAME surface pressure for
 p₀. The inferred NAME p₀ differs from the GOSAT p₀ by −15 to +37 hPa (mostly higher; the first
 soundings are ≈1013–1017 hPa). That is suspicious (sea-level pressure? a stale nearest-day template?). Script:
-`dev/scripts/reproduce_legacy_sources.py`. The surface-pressure files came from a separate NAME
+`dev/scripts/legacy_validation/reproduce_legacy_sources.py`. The surface-pressure files came from a separate NAME
 run (`Pressure_C1_*.txt`, `$DATA_PATH/LPDM/surface_pressure/<domain>`, nearest day within 31 days).
 
 ## Current products and the new reader (checked 2026-11-09)
@@ -67,7 +67,7 @@ Files used: GOSAT-1 v10.0 for 2013-01-01/02/07, GOSAT-2 v2.0 for 2020-01-01/02 (
   sounding at 14:58:50).
 - The legacy `gosat_process_file` crashes on v10/GOSAT-2 (binning: "cannot reindex ... duplicate
   values"); it never processed these products. With today's xarray its own file writer also fails
-  (exposure IDs as bytes), so `dev/scripts/run_legacy_gosat.py` saves the dataset before writing.
+  (exposure IDs as bytes), so `dev/scripts/legacy_validation/run_legacy_gosat.py` saves the dataset before writing.
 - Running the legacy code: jaspy 3.12 lacks `rich`, `iso3166`, `openghg_defs`; they were installed
   with `uv pip install --target` into /work/scratch-pw5/mattrigby/name-satellite/legacy_pydeps_20261109.
 - GOSAT-2 v2.0 declares `_FillValue = -9999.99` on pressure levels, so xarray reads them as NaN and

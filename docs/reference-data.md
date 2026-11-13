@@ -2,7 +2,7 @@
 
 Legacy files used to validate this pipeline. They are **not in git**. Put them under `data/`, or
 point `NAME_SATELLITE_REFDATA` at a directory with the same layout. Paths and sha256 checksums are
-registered in `src/name_satellite/refdata.py`, and `tests/test_refdata.py` checks them.
+registered in `src/name_satellite/validation/refdata.py`, and `tests/test_refdata.py` checks them.
 
 ## GOSAT-BRAZIL, SOUTHAMERICA domain, 2013-01-01
 
@@ -66,7 +66,7 @@ Added 2026-11-09 for `tests/test_observations.py`. `l2/`: the v7.0 L2 files, cop
 `/neodc/esacci/ghg/data/crdp_4/GOSAT/CH4_GOS_OCPR/v7.0/2013/`. `legacy_YYYYMMDD/{binned,unbinned}.nc`:
 the dataset returned by the legacy `acrg.satellite.gosat.gosat_process_file` (quality and
 bad-pressure filters, GOSAT-BRAZIL lat/lon bounds, with and without 0.234° × 0.352° binning), made by
-`dev/scripts/run_legacy_gosat.py`. The 2013 legacy obs files themselves came from v7.2, which is not
+`dev/scripts/legacy_validation/run_legacy_gosat.py`. The 2013 legacy obs files themselves came from v7.2, which is not
 on CEDA, and the legacy code cannot read v10 (X22), hence v7.0.
 
 ## Production processed file
@@ -77,8 +77,8 @@ on CEDA, and the legacy code cannot read v10 (X22), hence v7.0.
 histograms), so it was made from the 2019 mixing-ratio run.
 
 ## Legacy processing check (2026-11-07)
-Today's legacy code (NAME_processing 309e32e, `dev/scripts/run_legacy_process.py`) was run on scratch
-**copies** of 1 Jan (MR run) and 1–3 Jan (conc run), then compared (`dev/scripts/compare_processed.py`):
+Today's legacy code (NAME_processing 309e32e, `dev/scripts/legacy_validation/run_legacy_process.py`) was run on scratch
+**copies** of 1 Jan (MR run) and 1–3 Jan (conc run), then compared (`dev/scripts/legacy_validation/compare_processed.py`):
 - **MR 1 Jan vs production (2019):** footprints **bit-identical**; release met identical (temperature
   now in K instead of °C, i.e. +273.15; lat/lon differ by float precision, about 1e-6). **Boundary
   histograms differ:** the total over all four edges is identical per sounding, but particles
@@ -104,7 +104,7 @@ produced it: it converted every field as an air concentration. With `histogram_v
 output equals today's legacy NAME_processing histograms exactly as well.
 
 **Whole month (2026-11-09).** Run on all 31 days of the 2019 MR run
-(`dev/scripts/check_month_against_production.py`,
+(`dev/scripts/legacy_validation/check_month_against_production.py`,
 `tests/test_processing.py::test_golden_month_matches_production`):
 - 26 days are bit-identical to production in every variable;
 - on 3, 10, 11, 13 and 25 Jan, every variable is identical except ONE footprint cell (one sounding,
@@ -122,7 +122,7 @@ depend on the 2019 numpy/netCDF4 versions; it is not worth chasing further.
 ## Validation chain
 
 1. Obs file (+ NAME surface pressure) → NAME source definitions: reproduced exactly
-   (`dev/scripts/reproduce_legacy_sources.py`).
+   (`dev/scripts/legacy_validation/reproduce_legacy_sources.py`).
 2. 2019 MR raw output → benchmark/production `fp`: target for the processing port (exact).
 3. 2018 conc run vs 2019 MR run: Monte Carlo noise (1 Jan), and the unit-conversion error (whole
    month, via the two processed files).

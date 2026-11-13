@@ -20,7 +20,7 @@ Reported per member of a multi-sounding group:
   shared sensitivities with no correction).
 
 Usage (sci node; one day reads ~0.5 GB of NAME fields):
-    uv run python dev/scripts/measure_grouping_error.py DAY_FOLDER
+    uv run python dev/scripts/method_studies/measure_grouping_error.py DAY_FOLDER
 """
 
 import sys

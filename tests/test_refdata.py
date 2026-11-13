@@ -3,7 +3,7 @@
 import pytest
 
 from name_satellite import __version__
-from name_satellite.refdata import REFERENCE_FILES, sha256sum
+from name_satellite.validation.refdata import REFERENCE_FILES, sha256sum
 
 
 def test_package_imports():
@@ -27,7 +27,7 @@ def test_conc2018_month_manifest(refdata):
     """Every non-met file of the Jan 2013 conc run matches dev/manifests (sha256)."""
     from pathlib import Path
 
-    from name_satellite.refdata import CONC_2018_MANIFEST
+    from name_satellite.validation.refdata import CONC_2018_MANIFEST
 
     root = refdata("conc2018_input").parents[2]  # .../gosat_brazil_201301
     manifest = Path(__file__).resolve().parents[1] / CONC_2018_MANIFEST
@@ -59,7 +59,7 @@ def test_mr2019_month_manifest(refdata):
     """Every non-met file of the Jan 2013 2019 MR run matches dev/manifests (sha256)."""
     from pathlib import Path
 
-    from name_satellite.refdata import MR_2019_MONTH_MANIFEST
+    from name_satellite.validation.refdata import MR_2019_MONTH_MANIFEST
 
     root = refdata("mr2019_month_fields_20130131").parents[2]  # .../gosat_brazil_201301_mr_2019
     manifest = Path(__file__).resolve().parents[1] / MR_2019_MONTH_MANIFEST

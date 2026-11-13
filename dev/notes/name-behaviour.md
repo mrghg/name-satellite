@@ -20,7 +20,7 @@ repository.
   NAME 8.7.1 writes extra records (X20):
   - 24-h benchmark: only for releases above the 19 km agl domain top (22 of 425 sources);
   - 30-day stage 1 runs: 406 of 425 sources, +12,348 records (2.2%), mostly lateral exits;
-  - minimal example (2 sources, 1 thread, 30 days; `dev/scripts/prepare_fate_test.py`,
+  - minimal example (2 sources, 1 thread, 30 days; `dev/scripts/name_tests/prepare_fate_test.py`,
     `analyse_fate_test.py`): 3,717 records for 3,602 particles (+3.2%); 83 near-duplicate pairs
     (same source, one 10-s time step apart, positions one step apart); the excess clusters just
     before whole clock hours; records are written only at some phases of the 6-min sync cycle.

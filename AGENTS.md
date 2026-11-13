@@ -53,7 +53,7 @@ duplication and **disclosure**. This repository is meant to be shareable, so:
 - Before committing: `uv run ruff check . && uv run ruff format --check . && uv run pytest`.
   Pre-commit runs ruff and gitleaks.
 - Never commit data, NAME output, `.nc` or `.txt.gz` files, credentials or tokens. Reference data
-  live in `data/` (git-ignored); register new ones in `src/name_satellite/refdata.py` with a
+  live in `data/` (git-ignored); register new ones in `src/name_satellite/validation/refdata.py` with a
   sha256, and in `docs/reference-data.md`.
 - Fail loudly: raise on inconsistent input. No silent `return None` (a major legacy problem).
 - Match records by explicit IDs (sounding ID, level, source name), never by file or row order.

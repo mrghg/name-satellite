@@ -101,7 +101,7 @@ REFERENCE_FILES: tuple[RefFile, ...] = (
         "cci_v70_legacy_binned_20130101",
         f"{CCI_V70}/legacy_20130101/binned.nc",
         "79f06adc5b8061fb3a46de1667a791794ce15ce26985dfcf8414401c9bf5424d",
-        "Legacy gosat_process_file output, binned (dev/scripts/run_legacy_gosat.py)",
+        "Legacy gosat_process_file output, binned (legacy_validation/run_legacy_gosat.py)",
     ),
     RefFile(
         "cci_v70_legacy_unbinned_20130101",
@@ -161,7 +161,7 @@ def refdata_root() -> Path:
     env = os.environ.get(ENV_VAR)
     if env:
         return Path(env).expanduser()
-    return Path(__file__).resolve().parents[2] / "data"
+    return Path(__file__).resolve().parents[3] / "data"
 
 
 def ref_path(key: str) -> Path:

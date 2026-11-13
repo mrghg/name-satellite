@@ -15,7 +15,7 @@ L1 of the normalised maps) at native resolution and coarsened 4× and 16×. Part
 yardstick for 30-day runs of the same set-up (stage 1, different seeds): total scatter ~4%,
 shape 32% native falling to 5% at 16×.
 
-    uv run python dev/scripts/compare_d19.py WORK_FOLDER
+    uv run python dev/scripts/method_studies/compare_d19.py WORK_FOLDER
 """
 
 import sys
@@ -26,9 +26,9 @@ import pandas as pd
 import xarray as xr
 
 from name_satellite.footprints import footprint_from_mixing_ratio, grid_cell_area_m2
-from name_satellite.legacy_pipeline import legacy_grid_coordinates
 from name_satellite.name_output import read_fields_folder
-from name_satellite.validation import near_field_ratio, shape_difference, total_ratio
+from name_satellite.validation.compare import near_field_ratio, shape_difference, total_ratio
+from name_satellite.validation.legacy_pipeline import legacy_grid_coordinates
 
 N_LEVELS = 17
 RELEASE_SECONDS = 60

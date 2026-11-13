@@ -1,6 +1,6 @@
 import pytest
 
-from name_satellite.refdata import ref_path
+from name_satellite.validation.refdata import ref_path
 
 
 @pytest.fixture
