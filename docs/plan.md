@@ -136,6 +136,19 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   match within 10 min and 1°): shares of the side exits by face agree to 0.003 (correlation
   1.00), footprint totals 2% higher (median; 0.4–6.8%, 10–90%). Two fate-file behaviours found
   and handled (X20 entry): repeats 180 s apart, and exits exactly on the edge as printed.
+- ☑ Error of storing one column footprint per release group (storage only; D20's shared releases
+  are unaffected), measured on that day (`dev/scripts/measure_grouping_error.py`; results in the
+  spec): median 0.2%, max 0.9% in totals. Whether to share is for the group (open question 13);
+  until then one per sounding.
+- D20's own assumption (a group's release stands in for each member's): in January 2013 every
+  multi-sounding group is repeat exposures of one spot; members lie within 2.1 km of the group's
+  release centre (median 0.4 km, 99% within 1.9 km), inside a release box ~11 km across.
+  Synthetic test on 1 Jan 2013 (`dev/scripts/synthetic_grouping_test.py`, no new NAME runs): each
+  member's own release imitated by shifting the group footprint by the member's offset and
+  narrowing it by the box difference (locally uniform flow). Shape changes are ~1% of the seed
+  pair's particle noise at 1x1, 2x2 and 4x4 cells (median L1 8.3e-3 vs 0.65 at 1x1); totals change
+  by at most 1e-4 (noise: median 2%). D20's approximation is negligible for GOSAT. Not tested:
+  flow that stretches a ~1 km offset by much more than 10x before the footprint is set.
 - ☑ Improved boundary sensitivities (D13, D24: heights above ground in the site files' 1 km bins),
   in `processing.py`. Normalise by the particles released
   as counted in the fate records (a 10/s release gives 600, not 601: dev/notes/name-behaviour.md).

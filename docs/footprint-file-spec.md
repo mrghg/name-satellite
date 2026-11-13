@@ -61,6 +61,18 @@ A reader gets each sounding's footprint with `ds.srr.isel(footprint=ds.footprint
   cell by cell, in totals, and in modelled XCH4 with a prior flux field, against the particle
   noise). The shared footprint would be labelled by the group's earliest sounding. Sharing would
   roughly halve `srr` (January 2013: 1,285 soundings in 660 groups).
+  **Measured on 1 Jan 2013** (GOSAT-1 v10, 30-day run, 36 soundings in 14 multi-member groups;
+  `dev/scripts/measure_grouping_error.py`), sharing the group-mean-weight footprint (= the mean
+  of the members' own) against each member's own:
+  - `srr` total: median 0.21%, 90% 0.63%, max 0.90%; cell by cell (L1): median 0.41%, max 1.1%.
+    About 15 times smaller than the particle noise in column totals (seed pair: ~3% per run), and
+    zero on average within a group. With an illustrative uniform flux of 1e-8 mol/m²/s (own
+    enhancements 4–55 ppb): median 0.02 ppb, max 0.42 ppb.
+  - Boundary: the shared footprint's particle fractions add up to the group's column weight, not
+    the sounding's (difference up to 2.4e-4): with a uniform 1850 ppb background, median 0.13 ppb,
+    max 0.45 ppb. Rescaling the shared footprint by Σw_s / Σw̄ removes this exactly and leaves the
+    other numbers unchanged (boundary arrays L1 median 0.18%).
+  - Saving: about half of `srr` and the boundary arrays (~75 MB → ~40 MB for a GOSAT-1 month).
 - The same index would serve legacy-style binning, or per-level footprints, if ever wanted.
 - `release_group(sounding_id)` records which soundings share NAME releases (the group ID is the
   sounding ID of its earliest member). Their footprints come from the same particles, so they are
