@@ -2,7 +2,8 @@
 
 Where this sits (see docs/workflow.md)
 --------------------------------------
-Not part of the production workflow. Used after step 6 to compare footprints from two runs, e.g.
+VALIDATION ONLY, not part of the production workflow. Used after step 6 (by the ``dev/scripts``
+stage scripts) to compare footprints from two runs, e.g.
 NAME 8.7.1 against the legacy production files, or two runs that differ only in their random seed
 (which measures pure particle noise).
 

@@ -1,12 +1,12 @@
-"""Reproduce the LEGACY satellite processing for one day of NAME output, step by step.
+"""Reproduce the LEGACY satellite processing for one day of NAME output (LEGACY VALIDATION ONLY).
 
 Where this sits (see docs/workflow.md)
 --------------------------------------
 This chains workflow steps 5 (read NAME output) and 6 (footprints, boundary histograms, column
 combination) in exactly the way the legacy ACRG code did, so that its output can be compared with
 the legacy footprint files bit for bit (docs/reference-data.md). Every legacy quirk is reproduced
-on purpose and labelled with its docs/deviations.md ID. Improved processing will be a separate
-function; this one stays as the reference.
+on purpose and labelled with its docs/deviations.md ID. New runs are processed by
+``processing.py`` instead (D13, D23, D24); this module stays as the reference.
 
 Inputs (one legacy run folder, one day)
 ---------------------------------------

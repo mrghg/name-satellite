@@ -29,6 +29,14 @@ Rules
   levels (after D19 scaling, each with its own model surface pressure); release box = the
   footprint plus the spread of the member positions (as legacy bins); ID = the sounding ID of the
   earliest member (ties: smallest ID), as for legacy bins (D18).
+
+Output
+------
+No files written here. ``prepare.write_main_input`` writes the membership as
+``<day folder>/release_groups.csv`` (one row per sounding: ``sounding_id``, ``release_group``),
+which ``processing`` reads to give each sounding its group's per-level results; the group points
+go into ``release_plan.csv``, whose ``release_group`` column is the group's ID. A group of one
+sounding has that sounding's own ID.
 """
 
 import numpy as np
@@ -68,6 +76,9 @@ def group_soundings(obs, release_cell, grid, max_seconds=60):
     Returns:
         Integer array, one group number per sounding; groups are numbered in order of their
         first sounding's time.
+
+    Raises:
+        ValueError if a (dlat, dlon) cell size is not positive.
     """
     n = obs.sizes["sounding_id"]
     times = pd.to_datetime(obs["time"].values)
@@ -107,13 +118,13 @@ def release_points(obs, groups, footprint_km, pressure_levels_hpa=None):
         pressure_levels_hpa: optional (sounding, level) array of the levels to release at (e.g.
             scaled to the model surface, D19); default the retrieval's ``pressure_levels``.
 
-    The box of each member is its footprint (``footprint_box_degrees``), or its ``dlon``/``dlat``
-    if ``obs`` has them (legacy-binned soundings); the group's box is the largest member box plus
-    the spread of the member positions.
+    The group's box is the footprint box at the members' mean latitude
+    (``footprint_box_degrees``), or, if ``obs`` has ``dlon``/``dlat`` (legacy-binned soundings),
+    the largest member box; plus the spread (max - min) of the member positions.
 
     Returns:
         (points, members):
-          * ``points``: Dataset with dim ``sounding_id`` (the group's ID), in group order, with
+          * ``points``: Dataset with dim ``release_group`` (the group's ID), in group order, with
             ``time``, ``lon``, ``lat``, ``pressure_levels`` (hPa), ``dlon``, ``dlat`` (release box,
             degrees, full widths) and ``n_soundings``. ``releases.build_release_plan`` takes it.
           * ``members``: DataFrame with ``sounding_id`` and ``release_group`` (the group's ID), one
@@ -139,7 +150,7 @@ def release_points(obs, groups, footprint_km, pressure_levels_hpa=None):
             dlon_fp, dlat_fp = footprint_box_degrees(lat[members].mean(), footprint_km)
         rows.append(
             {
-                "sounding_id": ids[earliest],
+                "release_group": ids[earliest],
                 "time": times[members].mean(),
                 "lon": lon[members].mean(),
                 "lat": lat[members].mean(),
@@ -149,7 +160,7 @@ def release_points(obs, groups, footprint_km, pressure_levels_hpa=None):
                 "n_soundings": len(members),
             }
         )
-    dims = "sounding_id"
+    dims = "release_group"
     points = xr.Dataset(
         {
             "time": (dims, [r["time"] for r in rows]),
@@ -160,7 +171,7 @@ def release_points(obs, groups, footprint_km, pressure_levels_hpa=None):
             "dlat": (dims, [r["dlat"] for r in rows]),
             "n_soundings": (dims, [r["n_soundings"] for r in rows]),
         },
-        coords={dims: [r["sounding_id"] for r in rows]},
+        coords={dims: [r["release_group"] for r in rows]},
     )
     members = pd.DataFrame({"sounding_id": ids, "release_group": group_id.astype(str)})
     return points, members

@@ -14,15 +14,29 @@ main run's own release-point met (``release_met.py``) comes too late, so this sh
 
 The run
 -------
-NAME needs at least one source, so the run has one dummy source of a single particle at the
-first sounding, released over the day's soundings and stopped after 1 hour of travel (the legacy
-separate met run did the same, ``Met_satellite_template.txt``). It requests one quantity at each
-sounding's position and time: "Pressure (Pa)" at 0 m agl, i.e. the model's surface pressure
-(output groups ``ReleaseMet_<sounding>``, written and read with ``release_met``). Same met
-version and folder as the main run; 1 thread; takes minutes.
+NAME needs at least one source, so the run has one dummy source of a single particle, 10 m above
+the ground at the first sounding, released over the day's soundings and stopped after 1 hour of
+travel (the legacy separate met run did the same, ``Met_satellite_template.txt``). It requests
+two quantities at each sounding's position and time (``QUANTITIES``): "Pressure (Pa)" at 0 m agl,
+i.e. the model's surface pressure (D19), and "Pressure (Pa)" at the dispersion domain's top (20 km
+agl for new runs), to check the modelled release layers lie inside the domain (D21). The requests
+are written and read with ``release_met``. Same met version, met folder, domain and grid as the
+main run; stock NAME 8.7.1; 1 thread; takes minutes.
 
-The main run still reports its own surface pressure at each sounding (``release_met``), which
-should equal this run's: ``compare_with_release_met`` checks that.
+Files (in ``<day folder>/surface_pressure/``)
+---------------------------------------------
+* ``soundings.csv`` (written by ``prepare.prepare_day``): one row per sounding, where and when
+  to sample (``release_met.release_met_soundings``): ``sounding`` (S0001, ...), ``point_number``,
+  ``sounding_id``, ``lon``, ``lat`` (degrees), ``time`` (UTC, truncated to the second), ``z_pa``,
+  ``group``.
+* ``input.txt`` (``surface_pressure_input_text``) and ``job.sbatch``.
+* ``output/ReleaseMet_<sounding>_C1.txt`` (written by NAME): one NAME point-output file per
+  sounding. In the header, the ``<sounding>_PS`` / ``<sounding>_PT`` columns are the requests and
+  the "Z = ..." row their heights; the data rows (one per sounding location of its output group)
+  hold the values in Pa; only the row of the sounding itself is used.
+
+``prepare.write_main_input`` reads them (``read_surface_pressure``) and writes
+``<day folder>/surface_pressure.csv`` (``surface_pressure_table``, hPa).
 """
 
 import dataclasses
@@ -55,7 +69,12 @@ PLAUSIBLE_RATIO = (0.9, 1.1)
 
 
 def surface_pressure_settings(settings, output_folder):
-    """Settings for the met-only run, from the main run's (same met, domain and grid)."""
+    """Settings for the met-only run, from the main run's (same met, domain and grid).
+
+    Changes only the run name (``<main run name>_surface_pressure``), the output folder, the
+    particle limit (100), the threads (1) and switches off the main run's release-met requests
+    (this run makes its own).
+    """
     return dataclasses.replace(
         settings,
         run_name=f"{settings.run_name}_surface_pressure",
@@ -67,8 +86,12 @@ def surface_pressure_settings(settings, output_folder):
 
 
 def dummy_source_block(soundings):
-    """One particle, released from the latest sounding back to the earliest, 10 m above the
-    ground at the first sounding. NAME needs a source to run; this one's output is not used."""
+    """The ``Sources:`` block: one dummy particle (NAME needs a source to run).
+
+    Released from the latest sounding time + 60 s back to the earliest (a backwards run starts at
+    the later time), 10 m above the ground at the first sounding of ``soundings`` (a
+    ``release_met_soundings`` table). Its output is not used.
+    """
     first = soundings.iloc[0]
     start = soundings["time"].max() + pd.Timedelta(seconds=60)  # backwards: start is later
     stop = soundings["time"].min()
@@ -114,12 +137,17 @@ def surface_pressure_input_text(soundings, settings):
 def read_surface_pressure(output_folder, soundings):
     """Model surface pressure and domain-top pressure (Pa) at each sounding, from the met-only run.
 
+    Args:
+        output_folder: the run's output folder (``ReleaseMet_<sounding>_C1.txt`` files).
+        soundings: the run's ``soundings.csv`` table (``sounding``, ``sounding_id``, ...).
+
     Returns:
-        ``soundings`` with ``surface_pressure_pa`` and ``domain_top_pressure_pa`` added.
+        ``soundings`` with ``surface_pressure_pa`` and ``domain_top_pressure_pa`` added (Pa).
 
     Raises:
-        ValueError if an output file is missing, a value is not a positive number, or the
-        domain top's pressure is not below the surface pressure.
+        FileNotFoundError if an output file is missing. ValueError if a request is missing from
+        a file, a value is not a positive number, or the domain top's pressure is not below the
+        surface pressure.
     """
     table = read_release_met(output_folder, soundings, QUANTITIES)
     surface = table["surface_pressure_pa"].to_numpy()
@@ -164,24 +192,3 @@ def surface_pressure_table(obs, model):
     if not bad.empty:
         raise ValueError(f"Implausible model/retrieval surface pressure:\n{bad.to_string()}")
     return table
-
-
-def compare_with_release_met(surface_table, release_met):
-    """Model surface pressure from the met-only run minus that from the main run (hPa).
-
-    Both sample the same met at the same position and time, so they should agree to NAME's
-    print precision (7 significant figures, ~0.01 hPa).
-
-    Args:
-        surface_table: ``surface_pressure_table`` output (``sounding_id``, ``model_hpa``).
-        release_met: ``release_met.read_release_met`` of the main run, with ``sounding_id``.
-
-    Returns:
-        Series of differences indexed by sounding ID.
-    """
-    main = release_met.assign(sounding_id=release_met["sounding_id"].astype(str))
-    main = main.set_index("sounding_id")["surface_pressure_pa"] / 100.0
-    pre = surface_table.set_index("sounding_id")["model_hpa"]
-    if sorted(main.index) != sorted(pre.index):
-        raise ValueError("Different soundings in the two runs")
-    return (pre - main.loc[pre.index]).rename("difference_hpa")

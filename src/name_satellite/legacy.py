@@ -1,7 +1,9 @@
 """Readers for files written by the LEGACY ACRG pipeline.
 
-These are used to check the new code against legacy output (see docs/reference-data.md). They are
-not part of the new workflow itself.
+LEGACY VALIDATION ONLY: used to check the new code against legacy output (see
+docs/reference-data.md), mainly by ``legacy_pipeline`` (steps 5-6 the legacy way) and the
+``dev/scripts`` comparisons. Not part of the workflow for new runs (``prepare`` ->
+``processing``).
 """
 
 import gzip

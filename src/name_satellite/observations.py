@@ -29,13 +29,35 @@ variables the pipeline uses, under explicit names and units:
     xch4_averaging_kernel    (sounding, level), normalised column averaging kernel
     ch4_profile_apriori      ppb, (sounding, level)
 
-Filters (``quality_mask``, ``bad_pressure_mask``, ``mode_mask``, ``latlon_mask``) return boolean
-masks; apply them with ``select``. ``legacy_bin`` averages soundings within lat/lon bins exactly as
-the legacy ``acrg.satellite.gosat.binned_mean``.
+Filters (``quality_mask``, ``bad_pressure_mask``, ``level_order_mask``, ``mode_mask``,
+``latlon_mask``) return boolean masks; apply them with ``select``. ``legacy_bin`` averages
+soundings within lat/lon bins exactly as the legacy ``acrg.satellite.gosat.binned_mean``
+(validation only; new runs share releases instead, ``release_groups``, D20).
 
-Two writers: ``write_obs_file`` (our observation file, keyed by ``sounding_id``) and
-``write_legacy_obs_file`` (the legacy layout keyed by time, for comparisons with legacy files; it
-refuses repeated times).
+Our observation file (``write_obs_file``)
+-----------------------------------------
+``prepare`` writes ``<day folder>/obs_<site>_<YYYYMMDD>.nc`` (netCDF, one day, one product: D17),
+read by ``prepare.write_main_input`` and ``processing``. Dimensions ``sounding_id`` (coordinate,
+the key), ``lev`` (0-19, surface first) and ``id`` (exposure IDs per entry). Variables, with the
+legacy file's names and units:
+
+    time                       sounding_id; UTC (whole minutes for v10 / GOSAT-2, X22)
+    lat, lon                   sounding_id; degrees_north, degrees_east
+    xch4, xch4_uncertainty     sounding_id; units "1e-9" (ppb)
+    pressure_levels            (sounding_id, lev); hPa
+    pressure_weights           (sounding_id, lev); 1
+    xch4_averaging_kernel      (sounding_id, lev); 1
+    ch4_profile_apriori        (sounding_id, lev); "1e-9" (ppb)
+    exposure_id                (sounding_id, id); bytes, padded with "nan"
+    dlat, dlon, n_soundings    only for legacy-binned soundings (release box, degrees)
+
+Global attributes: ``product``, ``product_version``, ``source_file`` (the L2 file name),
+``bias_correction``, ``time_resolution`` (and ``binning`` if binned). The quality and land/glint
+flags are not written (only good soundings are kept). Look at it with ``ncdump -h`` or
+``xarray.open_dataset``.
+
+``write_legacy_obs_file`` writes the legacy layout keyed by time instead, for comparisons with
+legacy files only; it refuses repeated times.
 
 Time resolution (docs/deviations.md X22)
 ----------------------------------------
@@ -114,8 +136,10 @@ def read_l2(path):
         product, version, source file, the bias correction note (if any) and ``time_resolution``.
 
     Raises:
-        ValueError if the layout is not the expected (n soundings × 20 levels), exposure IDs are not
-        unique, or a level's pressure is not below the one beneath it.
+        ValueError if the file is not a recognised UoL OCPR product, the layout is not the
+        expected (n soundings × 20 levels), exposure IDs are not unique, or the levels are not
+        ordered surface first (judged on the median over soundings; single soundings out of
+        order are removed later by ``level_order_mask``).
     """
     path = Path(path)
     raw = xr.open_dataset(path).load()
@@ -224,7 +248,10 @@ def latlon_mask(table, lat_bounds, lon_bounds):
 
 
 def select(table, mask):
-    """The soundings where ``mask`` is True (attributes kept)."""
+    """The soundings where ``mask`` (boolean array, one value per sounding) is True.
+
+    Returns a new sounding table in the same order; attributes kept.
+    """
     return table.isel(sounding=np.flatnonzero(mask))
 
 
@@ -461,5 +488,9 @@ def to_obs(table):
 
 
 def write_obs_file(table, path):
-    """Write one day's soundings as our observation file (``to_obs`` layout)."""
+    """Write one day's soundings as our observation file (``to_obs`` layout; netCDF at ``path``).
+
+    Raises:
+        ValueError if a sounding ID is repeated (``to_obs``).
+    """
     to_obs(table).to_netcdf(path)

@@ -98,7 +98,8 @@ def test_prepare_day_then_main_input(tmp_path, monkeypatch):
     bottom = level_1["z_pa"] + level_1["dz_pa"] / 2
     assert bottom.to_numpy() == pytest.approx(model)
     saved = pd.read_csv(run / "release_plan.csv")
-    assert sorted(saved["sounding_id"].astype(str).unique()) == sorted(obs["sounding_id"].values)
+    assert "sounding_id" not in saved  # one row per release of a group, keyed by the group
+    assert sorted(saved["release_group"].astype(str).unique()) == sorted(obs["sounding_id"].values)
     text = (run / "input.txt").read_text()
     assert text.count("\nSourceID_") == 32
     assert "ReleaseMet_S0002" in text  # release-point met requested in the run (X21)

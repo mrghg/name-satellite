@@ -1,4 +1,6 @@
-"""Registry of legacy reference data used to validate the pipeline.
+"""Registry of legacy reference data used to validate the pipeline (LEGACY VALIDATION ONLY).
+
+Not part of the workflow for new runs; used by the tests and validation scripts.
 
 The files themselves are NOT in git (they live under ``data/``, or wherever the
 ``NAME_SATELLITE_REFDATA`` environment variable points). This module records

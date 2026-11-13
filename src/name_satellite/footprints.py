@@ -4,7 +4,10 @@ Where this sits (see docs/workflow.md)
 --------------------------------------
     5. read NAME output  ->  **6a. fields to footprints**  ->  6c. combine into column footprints
 
-NAME releases particles at 1 g/s for a short time (60 s for the legacy satellite runs) and reports,
+No files: takes the fields read by ``name_output`` (ppm s) and returns arrays, used by
+``processing`` (new runs) and ``legacy_pipeline`` (legacy reproduction).
+
+NAME releases particles at 1 g/s for a short time (60 s, legacy and new runs) and reports,
 for each output grid cell, the mixing ratio in the near-surface layer (0-40 m) *integrated over
 time*, in ppm s. Because the run goes backwards in time, that integral is the sensitivity of the
 mixing ratio at the release point to a surface emission in that grid cell.

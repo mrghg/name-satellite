@@ -1,4 +1,7 @@
-"""Step 6c of the workflow: combine the per-level results into one column result per sounding.
+"""Step 6c, LEGACY method: combine the per-level results into one column result per sounding.
+
+Used by ``legacy_pipeline`` (validation only). New runs combine levels in ``processing.py``,
+matching release level j to retrieval level j by number (D19/D20), not by nearest pressure.
 
 Where this sits (see docs/workflow.md)
 --------------------------------------

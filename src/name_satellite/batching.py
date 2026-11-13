@@ -1,5 +1,8 @@
 """Several days of soundings in one NAME run (batching), and splitting the output back into days.
 
+Optional and NOT used by ``prepare`` (new runs are one NAME run per day). Tested in stage 2
+(1-7 Jan 2013), where it saved little compute; kept for possible later use.
+
 Where this sits (see docs/workflow.md)
 --------------------------------------
     2. release plan per day  ->  **combine days**  ->  3. write NAME input  ->  4. run NAME

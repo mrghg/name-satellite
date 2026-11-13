@@ -26,19 +26,32 @@ which give level 0 roughly half weight.
 
 NAME is told the *centre* and *thickness* of each layer, in Pa.
 
+Only the lowest ``n_levels`` levels are released (D21: ``MODELLED_LEVELS``, 16 for the GOSAT
+products, checked every day by ``check_modelled_levels``), each with its own particle rate (D22:
+``PARTICLE_RATES``).
+
+Output: the release plan (``build_release_plan``), one row per NAME source. ``prepare`` writes it
+as ``<day folder>/release_plan.csv`` (look at it with ``head``); ``name_input`` turns each row
+into a NAME source, and ``processing`` reads it back to match NAME's sources to release groups
+and levels by source name.
+
 Surface pressure: retrieval, model-scaled (D19) or legacy
 ---------------------------------------------------------
 The retrieval's surface pressure p[0] and the met model's differ (smoothed model topography): on
 1 Jan 2013 the model's was a median 10 hPa higher (model ground ~85 m lower), so layers taken
 straight from the retrieval usually start above the model ground, and occasionally below it.
 
-* Default for new runs (decision D19): pass ``model_surface_pressure_hpa`` (from the met-only NAME
-  run, ``surface_pressure.py``). EVERY level is multiplied by model / retrieval surface pressure,
-  so the layers follow the model's terrain: layer 0 starts at the model ground, and each layer
-  keeps exactly its fraction of the column, so the retrieval's pressure weights and averaging
-  kernel still apply unchanged. Every level moves by the same fraction of its pressure: median
-  1%, up to 3.5% on 1 Jan 2013.
-* Without it, the retrieval's own levels are used unchanged.
+* New runs (decision D19): EVERY level is multiplied by model / retrieval surface pressure
+  (``scale_to_model_surface``; the model value comes from the met-only NAME run,
+  ``surface_pressure.py``), so the layers follow the model's terrain: layer 0 starts at the model
+  ground, and each layer keeps exactly its fraction of the column, so the retrieval's pressure
+  weights and averaging kernel still apply unchanged. Every level moves by the same fraction of
+  its pressure: median 1%, up to 3.5% on 1 Jan 2013. ``prepare.write_main_input`` scales each
+  sounding's levels, ``release_groups.release_points`` averages them over a release group (D20),
+  and ``build_release_plan`` takes the group points as they are. (``build_release_plan`` can also
+  scale itself, with ``model_surface_pressure_hpa``, for ungrouped soundings.)
+* Without either, the retrieval's own levels are used unchanged (``prepare_day``'s provisional
+  plan, which only fixes positions, times and the number of releases).
 * Legacy (validation only): the 2013 legacy runs replaced p[0] alone by a surface pressure from a
   separate NAME run (``use_name_pressure=True``; docs/deviations.md X9). Pass
   ``surface_pressure_hpa`` to reproduce that.
@@ -58,9 +71,12 @@ def scale_to_model_surface(pressure_levels_hpa, model_surface_pressure_hpa):
         model_surface_pressure_hpa: the met model's surface pressure at the sounding (hPa).
 
     Returns:
-        New array: every level multiplied by model / retrieval surface pressure. Layer boundaries
-        (``layer_boundaries_hpa``) scale by the same factor, so each layer keeps its fraction of
-        the column.
+        New array (hPa): every level multiplied by model / retrieval surface pressure. Layer
+        boundaries (``layer_boundaries_hpa``) scale by the same factor, so each layer keeps its
+        fraction of the column.
+
+    Raises:
+        ValueError if the model surface pressure is not positive.
     """
     p = np.array(pressure_levels_hpa, dtype=float)
     if not model_surface_pressure_hpa > 0:
@@ -79,6 +95,9 @@ def layer_boundaries_hpa(pressure_levels_hpa, surface_pressure_hpa=None):
     Returns:
         Array of n+1 boundaries in hPa, from the surface (index 0) to the top (index n).
         Layer i lies between boundaries i (bottom) and i+1 (top).
+
+    Raises:
+        ValueError if there are fewer than two levels or they do not decrease strictly upwards.
     """
     p = np.array(pressure_levels_hpa, dtype=float)  # a copy, so the input is never changed
     if p.ndim != 1 or p.size < 2:
@@ -224,6 +243,10 @@ def footprint_box_degrees(lat, diameter_km=10.5):
 # ---------------------------------------------------------------------------------------------
 
 
+# Names of the ID a release plan can carry, in order of preference (``build_release_plan``).
+ID_COLUMNS = ("release_group", "sounding_id")
+
+
 def build_release_plan(
     obs,
     n_levels=17,
@@ -238,8 +261,9 @@ def build_release_plan(
     """One row per NAME release (source) for one day of soundings.
 
     Args:
-        obs: observation Dataset, one entry per sounding, in time order: our format
-            (``observations.to_obs``, dim ``sounding_id``) or the legacy one (dim ``time``). Uses
+        obs: observation Dataset, one entry per sounding (or release group), in time order: our
+            format (``observations.to_obs``, dim ``sounding_id``), the group points of
+            ``release_groups.release_points`` (new runs), or the legacy one (dim ``time``). Uses
             ``time``, ``lon``, ``lat`` and ``pressure_levels`` (hPa).
         n_levels: retrieval levels released per sounding, from the surface (legacy 17).
         release_seconds: length of each release (legacy 60 s).
@@ -256,18 +280,27 @@ def build_release_plan(
     Returns:
         DataFrame with columns
           * ``source_name``: "SourceID_<n>", n = 1, 2, ... in sounding order, levels within each;
-          * ``point_number``, ``level_number``: 1-based sounding and level numbers;
-          * ``sounding_id``: the sounding's ID (D18), only if ``obs`` has one;
-          * ``release_end``: the sounding time truncated to the whole second (legacy, UTC). In
-            NAME's backwards run this is the source's "Stop Time";
+          * ``point_number``, ``level_number``: 1-based sounding (or group) and level numbers;
+          * ``release_group`` (group points of new runs: the group's ID, i.e. its earliest
+            sounding's ID, D20) or ``sounding_id`` (per-sounding input: the sounding's ID, D18);
+            only if ``obs`` has one;
+          * ``release_end``: the sounding (or group mean) time truncated to the whole second
+            (legacy, UTC). In NAME's backwards run this is the source's "Stop Time";
           * ``release_start``: ``release_end`` + ``release_seconds`` (NAME's "Start Time");
           * ``lon``, ``lat``, ``dlon``, ``dlat``: box centre and full widths (degrees);
           * ``z_pa``, ``dz_pa``: layer centre and thickness (Pa);
           * ``particles_per_second``.
+
+    Raises:
+        ValueError if both surface-pressure options are given, ``particle_rates`` does not give
+        ``n_levels`` positive rates, or a sounding's levels do not decrease upwards.
     """
     times = pd.to_datetime(obs["time"].values).floor("s")
     n_points = len(times)
-    sounding_ids = obs["sounding_id"].values if "sounding_id" in obs.variables else None
+    # The ID column is named after the input's ID: "release_group" for the group points of new
+    # runs (D20), "sounding_id" for per-sounding plans (met-only run, validation; D18).
+    id_name = next((name for name in ID_COLUMNS if name in obs.variables), None)
+    point_ids = obs[id_name].values if id_name is not None else None
     if surface_pressure_hpa is not None and model_surface_pressure_hpa is not None:
         raise ValueError("Give surface_pressure_hpa (legacy) or model_surface_pressure_hpa")
     if particle_rates is None:
@@ -304,7 +337,7 @@ def build_release_plan(
                 "dz_pa": thickness_pa[level - 1],
                 "particles_per_second": rates[level - 1],
             }
-            if sounding_ids is not None:
-                row["sounding_id"] = str(sounding_ids[p])
+            if point_ids is not None:
+                row[id_name] = str(point_ids[p])
             rows.append(row)
     return pd.DataFrame(rows)

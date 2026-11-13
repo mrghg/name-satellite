@@ -4,14 +4,28 @@ Where this sits (see docs/workflow.md)
 --------------------------------------
     ... -> 4. run NAME  ->  **5. read NAME output**  ->  6. combine into column footprints
 
-A NAME back-run for one day writes:
+A NAME back-run for one day writes, in its output folder:
 
-* a **fields file**: for every release (NAME "source"), the time-integrated mixing ratio (or air
-  concentration) in a near-surface layer on the output grid. Turned into a footprint later.
-  Read with ``read_fields``.
-* a **particle file**: one line per particle, giving where and when it stopped (left the domain,
-  or reached the end of the run). Used for the boundary sensitivities. Read with
-  ``read_acrg_particle_file`` (the ACRG-modified NAME format used by the legacy runs).
+* **fields files** ``Fields_grid1_C1_T1_<time>.txt`` (and ``Fields_grid1_2_...`` etc. for runs
+  with more than 2,000 releases): for every release (NAME "source"), the time-integrated mixing
+  ratio (ppm s) in the 0-40 m layer on the output grid. Turned into footprints in step 6. Read
+  with ``read_fields`` / ``read_fields_folder``. The header's "Key: value" lines give the run
+  name and grid (``X grid origin``, ``X grid size``, ...); the rows between ``Fields:`` and the
+  ``X Index, Y Index, ...`` line give each column's request, quantity, units ("ppm s"), source
+  (``SourceID_<n>``) and averaging; then one row per grid cell with any non-zero value.
+* a **particle-fate file**: one line per particle, giving where and when it stopped (left the
+  domain, or reached the maximum travel time). Used for the boundary sensitivities.
+    - New runs (patched NAME 8.7.1, X20): ``Particles_C1.txt``, read with ``read_name_fate_file``
+      and ``drop_repeated_fate_records``. After a header, a heading line ``Source,Travel Time
+      (hr),X (Lat-Long),Y (Lat-Long),Z (m agl),Particle Index,Fate Code,...`` and one
+      comma-separated line per record.
+    - Legacy runs (ACRG-modified NAME): ``particle_location_<run>_<date>.txt.gz``, read with
+      ``read_acrg_particle_file``.
+* release-point met files ``ReleaseMet_<S...>_C1.txt``: read with ``release_met``.
+
+Every NAME output file starts with a line naming the NAME version, e.g. "NAME III (version
+8.7.1)". Files can be large (a fields file has one column per release); ``head -40`` shows the
+header.
 
 These readers only *read* and *check*: they do no unit conversion or other processing. Every
 release is identified by its NAME source name (e.g. ``SourceID_17``) or source number, never by
@@ -183,11 +197,6 @@ def read_fields(path):
     )
 
 
-# ---------------------------------------------------------------------------------------------
-# Particle files
-# ---------------------------------------------------------------------------------------------
-
-
 def read_fields_folder(folder):
     """Read every footprint fields file of one NAME run and combine them by source.
 
@@ -218,6 +227,11 @@ def read_fields_folder(folder):
     fields = fields.isel(source=order)
     fields.attrs = parts[0].attrs
     return fields
+
+
+# ---------------------------------------------------------------------------------------------
+# Particle files
+# ---------------------------------------------------------------------------------------------
 
 
 def read_acrg_particle_file(path):
@@ -285,7 +299,7 @@ def read_name_fate_file(path):
     Unlike the legacy ACRG file, the vertical coordinate is whatever the input requested (the
     ``Z-Coord`` of the particle output block), and is named in the heading. With
     ``RunSettings.fate_met`` NAME also writes met columns (U Ambient, ..., Pressure, ...); of these
-    only the pressure is kept.
+    only the pressure is kept (added for D14; unused since D24, which bins heights in m agl).
 
     The ACRG-patched NAME (``met.PATCHED_NAME_DIR``, X20) adds two columns after Z:
     ``Particle Index`` (the particle's number within its source, 1 to the number released) and
@@ -300,6 +314,10 @@ def read_name_fate_file(path):
         ``age_hours``, ``lon``, ``lat``, ``z`` (and ``pressure_pa`` if the file has met columns,
         ``particle_index`` and ``fate_code`` if it comes from the patched NAME); and the vertical
         coordinate name, e.g. "m agl" or "Pa".
+
+    Raises:
+        ValueError if the heading line is missing or has unexpected columns, or a line has the
+        wrong number of values.
     """
     with _open_text(path) as f:
         lines = f.read().splitlines()

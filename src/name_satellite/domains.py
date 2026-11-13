@@ -2,7 +2,10 @@
 
 Where this sits (see docs/workflow.md)
 --------------------------------------
-Configuration used by steps 1 (which soundings: ``Site``) and 3 (the NAME grids: ``Domain``).
+Configuration only (no files read or written), used by step 1 (which soundings: ``Site``), step
+2 (which soundings share releases: ``Site.release_cell``; release box: ``Site.footprint_km``),
+step 3 (the NAME grids: ``Domain``) and step 6 (``processing`` looks the site up by the name in
+``day.json``). The command-line SITE argument of ``prepare`` is a key of ``SITES``.
 
 A ``Domain`` is the NAME output grid (where footprints are reported) and the dispersion domain
 (where particles are followed; they stop when they leave it). A ``Site`` is a satellite selection

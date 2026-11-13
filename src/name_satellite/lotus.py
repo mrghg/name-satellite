@@ -11,6 +11,15 @@ Threads: NAME will not use more threads than OpenMP reports as available
 (``OMP_NUM_THREADS``), and LOTUS2 only gives a job the CPUs it asks for
 (``--cpus-per-task``). So the job's CPUs, ``OMP_NUM_THREADS`` and the input file's ``Threads``
 must all be the same number; here they all come from ``RunSettings.threads``.
+
+Files: ``write_job_script`` writes a NAME job (``prepare`` writes ``<day folder>/job.sbatch`` and
+``<day folder>/surface_pressure/job.sbatch``); ``write_met_restore_job`` writes the month's
+``restore_met.sbatch``. Submit them with the month's ``submit.sh``, not one by one (the order
+matters). A NAME job runs in its folder, logs to ``slurm-<jobid>.out/.err`` there (NAME's own
+screen output, the exit code and the run time are in ``.out``), and exits non-zero if NAME's
+exit code is non-zero or NAME's error file (``<input stem>Error.txt``, e.g. ``inputError.txt``)
+is not empty, so the jobs that depend on it do not start. Check a failed day with ``squeue`` /
+``sacct`` and those files.
 """
 
 from pathlib import Path
@@ -122,6 +131,9 @@ def write_job_script(
 
     Returns:
         The path written.
+
+    Raises:
+        ValueError for an unknown QoS, or more threads than the QoS allows.
     """
     if qos not in QOS_LIMITS:
         raise ValueError(f"Unknown QoS {qos!r}; choose from {sorted(QOS_LIMITS)}")

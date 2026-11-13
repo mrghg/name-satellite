@@ -1,4 +1,7 @@
-"""Step 6b of the workflow: where particles left the domain (boundary sensitivities).
+"""Step 6b, LEGACY method: where particles left the domain (boundary sensitivities).
+
+Used by ``legacy_pipeline`` (validation only). New runs use the particle-fate accounting of
+decision D13 in ``processing.py`` (``classify_fates``, ``release_fates``).
 
 Where this sits (see docs/workflow.md)
 --------------------------------------
@@ -9,7 +12,7 @@ fractions from a global model at the domain edges. For each release, the histogr
 fraction of its particles left through each edge (north, east, south, west), and where along the
 edge and at what height.
 
-This module currently implements only the LEGACY method, to reproduce the legacy files exactly.
+This module implements only the LEGACY method, to reproduce the legacy files exactly.
 Its known problems are described in docs/deviations.md (X6, X14). In short:
 
 * a particle is assigned to an edge if its final position lies beyond the outermost half-cell of
@@ -28,8 +31,6 @@ far end of each edge is binned; choose it with ``variant``:
 * ``"2019"``: the outermost bin ends at the grid edge (particles beyond it are dropped);
 * ``"2025"``: the outermost bin is stretched to include all particles beyond the far end
   (NAME_processing commit 094d8e6, May 2025). Particles beyond the near end are still dropped.
-
-The improved method (decision D13) will be added alongside, not in place of, this one.
 """
 
 import numpy as np

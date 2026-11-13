@@ -52,7 +52,7 @@ def test_release_point_of_a_group():
     o = obs([0.05, 0.15], [0.1, 0.3], ["2013-01-01 15:00:00", "2013-01-01 15:00:30"],
             ids=["B", "A"])  # fmt: skip
     points, members = release_points(o, np.array([0, 0]), footprint_km=10.5)
-    assert points["sounding_id"].values.tolist() == ["B"]  # the earliest member's ID
+    assert points["release_group"].values.tolist() == ["B"]  # the earliest member's ID
     assert members["release_group"].tolist() == ["B", "B"]
     assert points["lat"].values[0] == pytest.approx(0.10)
     assert pd.Timestamp(points["time"].values[0]) == pd.Timestamp("2013-01-01 15:00:15")

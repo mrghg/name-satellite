@@ -16,7 +16,32 @@ settings follow the legacy satellite runs unless a docs/deviations.md entry says
   on the output grid (one column per source in the fields file);
 * particle fate output (where/when each particle stopped), replacing the ACRG-modified NAME's
   particle file;
-* the UM global met declarations from the NAME team's 8.7.1 demo files.
+* the UM global met declarations from the NAME team's 8.7.1 demo files;
+* met at each release point (``release_met``, X21), unless ``RunSettings.release_met`` is False.
+
+The file (``<day folder>/input.txt``, written by ``prepare.write_main_input``)
+---------------------------------------------------------------------------
+Plain text; read it in order. The parts worth checking:
+
+* ``Main Options``: run name, random seed, ``Max # Sources`` (= number of releases), ``Backwards?
+  Yes``;
+* ``Output Options``: the output folder (``<day folder>/output``);
+* ``Horizontal Grids`` ``HGrid1`` (output grid), ``Vertical Grids`` ``ZGrid1`` (0-40 m layer),
+  ``Temporal Grids`` ``TGridEndOfRun`` (one output time, the window's earliest end);
+* ``Domains``: the dispersion domain (degrees, top in m agl) and the maximum travel time (h);
+* ``Sources``: one line per release, named ``SourceID_<n>`` as in ``release_plan.csv`` (start =
+  the later time; X, Y, Z = box centre in degrees and Pa; dX, dY, dZ = full sizes; ``#
+  Particles`` = particles/s);
+* ``Output Requirements - Fields``: ``Req_H1Z1_<n>`` for source ``SourceID_<n>``, in output groups
+  ``Fields_grid1``, ``Fields_grid1_2``, ... of at most 2,000 (``fields_output_group``);
+* ``Output Requirements - Sets of Particle/Puff Information``: the fate records, output name
+  ``Particles``;
+* the met declarations (met folder, minimum boundary-layer depth) and the release-met requests
+  (output groups ``ReleaseMet_S0001``, ...; one per release group).
+
+NAME writes, in the output folder, ``<group>_C1_T1_<time>.txt`` per fields output group,
+``Particles_C1.txt`` and ``ReleaseMet_<S...>_C1.txt`` (read by ``name_output``, ``release_met``
+and ``processing``).
 
 What's different from the 2019 legacy input (deliberately):
 * The time-integration window covers every release of the day (X18). Legacy anchored a 721 h
@@ -86,8 +111,8 @@ class RunSettings:
     min_bl_depth_m: float = 40.0  # legacy; the NAME demo declarations use 100 m
     surface_layer_depth_m: float = 40.0  # footprint layer 0-40 m (legacy ZGrid1)
     fate_z_coord: str = "m agl"  # legacy and D24 (boundary bins in m agl)
-    # Add NAME's met columns (incl. Pressure, Pa) to each fate record: with fate_z_coord "m agl"
-    # this gives both the height (to find top exits) and the pressure (D14; superseded by D24).
+    # Add NAME's met columns (incl. Pressure, Pa) to each fate record. Added for D14 (pressure
+    # bins); since D24 (heights m agl) nothing uses the pressure. prepare.py still sets it True.
     fate_met: bool = False
     integration: str = "all_releases"  # or "legacy_2019" (X18)
     # Request met at the release points in this run (release_met.py). Legacy used a separate run.
@@ -168,8 +193,8 @@ def restart_and_cases_block():
 
 def openmp_block(settings):
     # "Threads" applies to every parallel loop (particles, particle update, output processing).
-    # "Output Group Threads" parallelises over output groups; we have one, so 1 (as the NAME
-    # demo). The job must provide the same number of CPUs and OMP_NUM_THREADS (lotus.py).
+    # "Output Group Threads" parallelises over output groups; kept at 1, as the NAME demo. The job
+    # must provide the same number of CPUs and OMP_NUM_THREADS (lotus.py).
     use = "Yes" if settings.threads > 1 else "No"
     return (
         "OpenMP Options:\n"
@@ -270,8 +295,9 @@ def dispersion_options_block(settings):
 
 def particle_fate_block(settings):
     # One line per particle when it stops (left the domain, or reached the maximum travel time):
-    # source number, travel time and position (dev/notes/name-behaviour.md); with fate_met, also
-    # the met at that point (U/V/W Ambient ... Pressure ...).
+    # source number, travel time and position (dev/notes/name-behaviour.md; the patched NAME adds
+    # particle index and fate code, X20); with fate_met, also the met at that point
+    # (U/V/W Ambient ... Pressure ...). Output name "Particles": file Particles_C1.txt.
     met = "Yes" if settings.fate_met else "No"
     return (
         "Output Requirements - Sets of Particle/Puff Information:\n"
@@ -379,7 +405,17 @@ def met_declarations_block(settings):
 
 
 def name_input_text(plan, settings):
-    """Text of the NAME input file for one day's release plan."""
+    """Text of the NAME input file for one day's release plan.
+
+    Args:
+        plan: release plan (``releases.build_release_plan``), one row per NAME source.
+        settings: ``RunSettings``.
+
+    Raises:
+        ValueError for an unknown ``settings.integration``, a placeholder left unfilled in the
+        met declarations, or more release groups than release met allows
+        (``release_met.MAX_SOUNDINGS``).
+    """
     timing = run_timing(plan, settings)
     blocks = [
         "! NAME input file written by name_satellite (https://github.com/mrghg/name-satellite)\n",
@@ -403,7 +439,7 @@ def name_input_text(plan, settings):
 
 
 def write_name_input(path, plan, settings):
-    """Write the NAME input file; returns the path."""
+    """Write the NAME input file (``name_input_text``) to ``path``; returns the path."""
     path = Path(path)
     path.write_text(name_input_text(plan, settings))
     return path

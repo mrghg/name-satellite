@@ -1,8 +1,14 @@
 # Workflow
 
-This page describes the end-to-end workflow in plain terms. It describes the **target** design;
-steps not yet built are marked *(planned)*. Each step names the module that does it, so you can go
-from here to the code. Each module's docstring describes the same step in more detail.
+This page describes the end-to-end workflow in plain terms. Each step names the module that does
+it, so you can go from here to the code; each module's docstring describes the same step in more
+detail. To run it yourself and look at every file on the way, follow
+[run-a-day.md](run-a-day.md).
+
+There are two tracks. **New runs** (`prepare.py` → NAME → `processing.py`) are what we will
+produce. **Legacy validation** (`legacy_pipeline.py` and the modules it uses) reproduces the
+legacy pipeline exactly, so that every difference in the new runs is deliberate and logged
+([deviations.md](deviations.md)). Both share steps 1–5.
 
 ```
  Satellite L2 files ─► 1. Read soundings ─► 2. Plan releases ─► 3. Write NAME inputs
@@ -32,7 +38,7 @@ surface-pressure job → that day's main job (`afterok`: a job starts only if th
 succeeded). Job scripts exit non-zero if NAME fails or writes to its error file. `--test` limits
 travel to 1 hour on the debug queue.
 
-## 1. Read soundings *(first version: `name_satellite/observations.py`)*
+## 1. Read soundings *(`name_satellite/observations.py`, `l2_files.py`)*
 **In:** one day's University of Leicester OCPR proxy XCH4 file: GOSAT-1 v10.0 or GOSAT-2 v2.0 (ESA
 CCI v7.x for legacy validation). **Out:** a table with one entry per sounding (dims `sounding`,
 `level`): exposure ID, time, latitude/longitude, XCH4 and its uncertainty, quality and land/glint
@@ -48,7 +54,8 @@ flags, and per-level pressure (hPa, surface first), pressure weight, averaging k
    adds `dlat`/`dlon` (footprint + spread) for the release boxes.
 4. `to_obs` / `write_obs_file` give our observation file, indexed by `sounding_id` (D18), with the
    same variable names as the legacy file plus `time`, and `dlat`/`dlon`/`n_soundings` for bins.
-   `releases.build_release_plan` takes it and carries `sounding_id` into every release.
+   `releases.build_release_plan` takes it and carries the ID into every release: `sounding_id`
+   for per-sounding plans, `release_group` for the shared releases of new runs (D20).
    `to_legacy_obs` / `write_legacy_obs_file` give the legacy time-indexed layout, for comparisons
    with legacy files only; they refuse repeated times (X22).
 
@@ -56,10 +63,11 @@ Checked against the legacy `acrg.satellite.gosat` on ESA CCI v7.0 files for 1 an
 (`dev/scripts/run_legacy_gosat.py`, `compare_observations_with_legacy.py`): same soundings, values
 identical, unbinned and binned. The legacy code cannot read v10 or GOSAT-2 files (X22).
 
-## 2. Plan releases *(in progress: `name_satellite/releases.py`)*
-**In:** the sounding table and a pressure ceiling. **Out:** a release plan: for each sounding and
-each retrieval level below the ceiling, a vertical layer (pressure top and bottom, Pa), a
-horizontal box (the footprint size), a 60 s release time and a particle rate.
+## 2. Plan releases *(`name_satellite/releases.py`, `release_groups.py`)*
+**In:** the sounding table and the model surface pressure. **Out:** `release_plan.csv`: for each
+release group and each modelled retrieval level (the lowest 16 for the GOSAT products, D21), a
+vertical layer (centre and thickness, Pa), a horizontal box (the footprint size), a 60 s release
+time and a particle rate.
 Layers run between the midpoints of neighbouring retrieval levels. The lowest layer starts at the
 surface. For new runs every level is first scaled by model / retrieval surface pressure
 (`scale_to_model_surface`, D19), so the layers follow the model's terrain and keep their shares of
@@ -80,9 +88,11 @@ legacy rule (30/s up to level 12, 3/s above).
 Done: `release_layers_pa` (layer centre and thickness, Pa), `particles_per_second` (legacy
 rate rule), `footprint_box_degrees` (10.5 km box, legacy haversine) and `build_release_plan` (one
 row per release: name, sounding, level, times, box, layer, rate). They reproduce the vertical layers, positions, times and rates of all 11,526 legacy
-sources for January 2013 (`tests/test_releases.py`). Still to do: pressure ceiling.
+sources for January 2013 (`tests/test_releases.py`). Which levels are modelled: the lowest 16
+for the GOSAT products (`releases.MODELLED_LEVELS`, D21), whose layers lie wholly inside the 20 km
+domain; `prepare` checks this per sounding against the model pressure at the domain top.
 
-## 3. Write NAME inputs *(first version: `name_satellite/name_input.py`, `met.py`)*
+## 3. Write NAME inputs *(`name_satellite/name_input.py`, `met.py`)*
 **In:** the release plan, domain settings and the met version available for the dates. **Out:** a
 NAME input file per day: one source and one output request per release, plus particle-fate output.
 
@@ -112,10 +122,11 @@ particle left the domain.
 
 New runs (`prepare.py`): the main run uses the ACRG-patched NAME 8.7.1 (`met.PATCHED_NAME_DIR`,
 outside the repository), whose fate records also give each particle's index within its source and
-its fate code (X20), and asks for met columns in the fate records, so each fate has a pressure
-(D14). The boundary bins are now heights above ground in the site files' 1 km bins (D24). The met-only surface-pressure run uses the stock NAME 8.7.1.
+its fate code (X20). The fate records give heights in m above the model ground, which the
+processing bins in the site files' 1 km bins (D24); no met columns are requested in them.
+The met-only surface-pressure run uses the stock NAME 8.7.1.
 
-## 5. Read NAME output *(in progress: `name_satellite/name_output.py`, `legacy.py`)*
+## 5. Read NAME output *(`name_satellite/name_output.py`; legacy formats: `legacy.py`)*
 **In:** NAME fields and particle files. **Out:** for each release, a footprint (sensitivity of the
 mole fraction at the release to surface fluxes, (mol/mol)/(mol/m²/s)), counts of particles leaving
 through each boundary (for boundary conditions) and the met at the release point.
@@ -148,8 +159,8 @@ format the inversion reads (legacy `fp` format and/or `srr`), with `max_level` r
 Modules, in order:
 - `footprints.py` (6a): `grid_cell_area_m2`, `footprint_from_mixing_ratio`: field [ppm s] × 1e-6 ×
   cell area / release duration → (mol/mol)/(mol/m²/s).
-- `boundary_histograms.py` (6b): `legacy_boundary_histograms` (variants "2019" and "2025"; the
-  D13 method is still to do).
+- `boundary_histograms.py` (6b): `legacy_boundary_histograms` (variants "2019" and "2025"; legacy
+  validation only: the D13 method for new runs is in `processing.py`).
 - `column.py` (6c): `nearest_release_levels` (legacy nearest-pressure rule) and `combine_levels`
   (Σ footprint × pressure weight × averaging kernel over levels below `max_level`).
 - `legacy_pipeline.py`: `process_day_legacy` chains steps 5–6 exactly as legacy (reading a legacy run folder; `process_legacy_inputs` is the same processing for data already read, e.g. NAME 8.7.1 runs);

@@ -274,6 +274,24 @@ def test_fate_file_from_patched_name(tmp_path):
     assert particles["pressure_pa"].tolist() == [100489.8, 81052.22]
 
 
+def test_fate_file_from_patched_name_without_met(tmp_path):
+    """New runs (D24) ask for no met columns: index and fate code are the last columns."""
+    from name_satellite.name_output import read_name_fate_file
+
+    no_met = (
+        TINY_FATE_PATCHED.replace(",  Pressure,", ",")
+        .replace(",  100489.8,", ",")
+        .replace(",  81052.22,", ",")
+    )
+    path = tmp_path / "Particles_C1.txt"
+    path.write_text(no_met)
+    particles, z_units = read_name_fate_file(path)
+    assert z_units == "m agl"
+    assert particles["particle_index"].tolist() == [17, 1801]
+    assert particles["fate_code"].tolist() == [8, 16]
+    assert "pressure_pa" not in particles
+
+
 def test_drop_repeated_fate_records():
     from name_satellite.name_output import drop_repeated_fate_records
 

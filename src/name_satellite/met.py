@@ -12,6 +12,14 @@ The version dates below are those of the NAME team's own 8.7.1 demo scripts
 (``~/name/examples/DemoScripts_v8_7_1/AirHistoryBackRuns/BackRuns_OneSite_ByDay.sh``), NOT the
 legacy ACRG dates (which stopped at Mk10, X1). File names come from NAME's met definition files,
 so the archive check uses exactly the files NAME will ask for.
+
+Used by: ``prepare.run_settings`` (which version), ``met_restore`` (run as the month's restore
+job: ``required_met_files`` + ``restore_met_files``) and ``name_input`` (the met definition and
+declarations of the version). Files: reads the met definition file of the NAME installation and
+the UM archive (``MET_ARCHIVE``, read only); writes the restored met files into a met folder
+(``prepare.MET_ROOT/<version>``, e.g. ``.../name-satellite/met/UMG_Mk6PT/``), shared by every run
+that uses that version. Paths of the NAME installations: ``NAME_DIR`` (stock 8.7.1) and
+``PATCHED_NAME_DIR`` (X20).
 """
 
 import re
@@ -63,8 +71,16 @@ MET_VERSIONS = (
 def met_version_for_period(start, end):
     """The single met version covering every day from ``start`` to ``end`` (inclusive).
 
-    Raises ValueError if the period spans a changeover (the run must then be shortened or split;
-    not yet supported).
+    Args:
+        start, end: first and last time of met needed (anything ``pandas.Timestamp`` reads; only
+            the dates count).
+
+    Returns:
+        The ``MetVersion``.
+
+    Raises:
+        ValueError if the period spans a changeover (the run must then be shortened or split;
+        not yet supported).
     """
     start = pd.Timestamp(start).normalize()
     end = pd.Timestamp(end).normalize()
@@ -113,8 +129,16 @@ def required_met_files(version, start, end, name_dir=NAME_DIR):
     One extra time step is included at each end, because NAME interpolates in time between met
     files on either side.
 
+    Args:
+        version: ``MetVersion``.
+        start, end: first and last time of met needed (UTC).
+        name_dir: NAME installation whose met definition file lists the files.
+
     Returns:
         Sorted list of file names (e.g. "MO201212310000.UMG_Mk6_L59PT7.pp").
+
+    Raises:
+        ValueError if the met partitions have different time steps.
     """
     patterns = read_met_file_patterns(
         Path(name_dir) / "Resources" / "Defns" / version.definition_file
@@ -162,8 +186,18 @@ def restore_met_files(version, file_names, met_folder, archive=MET_ARCHIVE):
     * a file already present is kept if its size matches the archive, otherwise an error is
       raised (it is never silently overwritten).
 
+    Args:
+        version: ``MetVersion``.
+        file_names: from ``required_met_files``.
+        met_folder: where to put them (created if needed).
+        archive: the UM met archive (read only).
+
     Returns:
         dict with counts: ``restored``, ``linked``, ``already_present``.
+
+    Raises:
+        FileNotFoundError if a file is not in the archive; ValueError if a file already in
+        ``met_folder``, or a decompressed one, has the wrong size.
     """
     import gzip
     import os

@@ -1,10 +1,21 @@
 """Where the satellite Level-2 files are, and downloading them (input to workflow step 1).
 
+Where this sits (see docs/workflow.md)
+--------------------------------------
+    CEDA  ->  **download one day's L2 file**  ->  1. ``observations.read_l2``
+
 The University of Leicester OCPR proxy XCH4 products are open data on CEDA. The JASMIN mount
 ``/neodc/gosat`` is not readable for us (permission denied, group ``byacl``), so files are fetched
 over HTTPS from ``dap.ceda.ac.uk`` (no login needed) into a cache folder, once.
 
     path = download_l2("GOSAT-1 v10.0", "2013-01-01", cache_folder)
+
+``prepare`` uses the cache ``prepare.L2_CACHE`` = ``$NAME_SATELLITE_SCRATCH/l2_cache`` (default
+``/work/scratch-pw5/$USER/name-satellite/l2_cache``). Each file is one day's netCDF as
+published, e.g.
+``UoL-GHG-L2-CH4-GOSAT-OCPR-20130101-fv10.0.nc``: dimensions ``n`` (soundings) × ``m`` (20
+retrieval levels); ``ncdump -h`` shows its variables and the product's bias-correction note.
+Nothing in the file is changed here.
 
 GOSAT-1 and GOSAT-2 are separate products and are never mixed (decision D17).
 """
@@ -56,7 +67,11 @@ class L2FileMissing(FileNotFoundError):
 
 
 def l2_url(product_name, day):
-    """URL of one day's file. Raises ValueError outside the product's coverage."""
+    """URL of one day's file (``product_name``: a key of PRODUCTS; ``day``: a date).
+
+    Raises:
+        KeyError for an unknown product; ValueError outside the product's coverage.
+    """
     product = PRODUCTS[product_name]
     day = pd.Timestamp(day)
     if not pd.Timestamp(product.first_day) <= day <= pd.Timestamp(product.last_day):
@@ -72,6 +87,14 @@ def download_l2(product_name, day, cache_folder):
 
     The file is written to ``<name>.partial`` and renamed when complete, so an interrupted
     download never leaves a file that looks finished.
+
+    Args:
+        product_name: a key of PRODUCTS, e.g. "GOSAT-1 v10.0".
+        day: the day (anything ``pandas.Timestamp`` reads).
+        cache_folder: folder for downloaded files (created if needed).
+
+    Returns:
+        Path of the file, named as on CEDA.
 
     Raises:
         L2FileMissing if CEDA has no file for that day (HTTP 404); other HTTP errors as raised.

@@ -7,7 +7,8 @@ Where this sits (see docs/workflow.md)
 
 What is needed, and why
 -----------------------
-For each sounding, the processing needs:
+For each release point (in new runs: each release group, D20; the rows are still called
+"soundings" here), the processing needs:
 
 * the model's surface pressure at the sounding: a release layer centred below it is partly
   underground (deviation X9), and NAME then reports a pressure for the release other than the
@@ -38,6 +39,16 @@ of batching.py. The output groups (one per sounding) need ``RunSettings.max_fiel
 
 Times: the met is sampled at the sounding time truncated to the whole second (``release_end``),
 as legacy (TGrid t0 = sounding time).
+
+Output files
+------------
+One NAME point-output file per release point, ``<output folder>/ReleaseMet_<S0001...>_C1.txt``
+(S0001 = first row of ``release_met_soundings``, in release-plan order). In each, the header rows
+give per column the request (``<S...>_T``, ``_P``, ``_WS``, ``_WD``, ``_BL``, ``_PS``), quantity,
+units and "Z = ..." level; then one data row per location of the output group. Only the row of
+the file's own location, and for the level-1 quantities the column at its own release pressure,
+are used (``read_release_met``). ``processing.read_day`` reads the main run's files; the met-only
+run (``surface_pressure``) writes the same kind of file with ``_PS`` and ``_PT`` only.
 """
 
 from pathlib import Path
@@ -70,15 +81,19 @@ def release_met_soundings(plan):
 
     Returns:
         DataFrame with ``sounding`` (a unique label, e.g. "S0001", in plan order), ``day`` (if in
-        the plan), ``point_number``, ``sounding_id`` (if in the plan), ``lon``, ``lat``
+        the plan), ``point_number``, ``release_group`` or ``sounding_id`` (whichever the plan has),
+        ``lon``, ``lat``
         (degrees), ``time`` (sounding time, truncated to the second) and ``z_pa`` (centre of
         the level-1 release layer, Pa), plus ``group`` (1-based) assigning soundings to output
         groups of at most MAX_PER_GROUP.
+
+    Raises:
+        ValueError if there are more than MAX_SOUNDINGS soundings.
     """
     lowest = plan[plan["level_number"] == 1].reset_index(drop=True)
     columns = ["day", "point_number"] if "day" in lowest else ["point_number"]
-    if "sounding_id" in lowest:
-        columns.append("sounding_id")
+    # Carry the plan's ID: release_group (new runs) or sounding_id (per-sounding plans).
+    columns += [name for name in ("release_group", "sounding_id") if name in lowest]
     soundings = lowest[columns].copy()
     soundings.insert(0, "sounding", [f"S{i:04d}" for i in range(1, len(lowest) + 1)])
     soundings["lon"] = lowest["lon"]
@@ -247,7 +262,8 @@ def read_release_met(output_folder, soundings, quantities=QUANTITIES):
         figures.
 
     Raises:
-        ValueError if a file, request or level is missing, or the level is ambiguous.
+        FileNotFoundError if a file is missing; ValueError if a request or level is missing, or
+        the level is ambiguous.
     """
     output_folder = Path(output_folder)
     results = []
@@ -277,7 +293,8 @@ def release_met_per_source(plan, release_met):
     """Release-point met for every source, in the layout of the legacy met files.
 
     This is what ``legacy_pipeline.process_legacy_inputs`` takes as ``met`` (as from
-    ``legacy.read_legacy_met_folder``), so new runs need no separate met run.
+    ``legacy.read_legacy_met_folder``), so NAME 8.7.1 runs processed the legacy way need no
+    separate met run. (``processing`` uses ``read_release_met`` directly instead.)
 
     Pressure: NAME reports the requested pressure for a release above the ground, and the model's
     surface pressure for one centred below it (X9). So for every release,
@@ -297,6 +314,9 @@ def release_met_per_source(plan, release_met):
         DataFrame, one row per source: ``point_number``, ``level_number``, ``time``, ``lon``,
         ``lat``, ``z_pa``, ``temperature_c`` (°C), ``boundary_layer_depth_m``, ``pressure_pa``,
         ``wind_speed_m_s``, ``wind_direction_deg``.
+
+    Raises:
+        ValueError if the release met and the plan have different point numbers.
     """
     met = release_met.set_index("point_number")
     if sorted(met.index) != sorted(plan["point_number"].unique()):

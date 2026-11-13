@@ -93,7 +93,8 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   per ≤86 soundings, one time grid and output file per sounding; up to 199 soundings per run).
   Checked against the legacy met run on 1–2 Jan 2013: footprints and histograms bit-identical,
   met within NAME's print precision (X21).
-- ☑ Fate output with met columns (`RunSettings.fate_met`): height in m agl plus pressure.
+- ☑ Fate output with met columns (`RunSettings.fate_met`): height in m agl plus pressure. Dropped
+  for new runs on 2026-11-13: since D24 nothing uses the pressure.
 - ☐ Hourly (HiTRes) output mode (D1).
 
 ## Phase 4: Running on LOTUS2 ◐

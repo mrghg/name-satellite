@@ -14,7 +14,25 @@ In (one day's run folder, written by ``prepare.py`` and NAME):
     output/ReleaseMet_*.txt    met at each group's release point (X21)
 
 Out: an xarray Dataset with one column footprint per sounding (``process_day``), or a month of them
-(``process_month``), written by ``write_footprint_file``.
+(``process_month``), written by ``write_footprint_file`` as one netCDF file per month, named by
+``footprint_file_name``, e.g. ``GOSAT1v10-BRAZIL-column_NAME_UMG_SOUTHAMERICA_inert_201301.nc``.
+Layout (``docs/footprint-file-spec.md``): dimensions ``sounding_id`` (one entry per sounding,
+sorted by time then ID), ``footprint`` (reached through ``footprint_index``), ``latitude``,
+``longitude``, ``height`` (20 bins of 1 km, m above the model ground), ``release_level`` (1-16);
+main variables ``srr`` ((mol/mol)/(mol/m2/s)), ``particle_locations_n/e/s/w/top``,
+``mean_age_particles_*`` (hours), ``particle_fraction_inside``, the release-point met, release
+layers (hPa) and ``column_weight``; provenance in the global attributes. Look at it with
+``ncdump -h`` or ``xarray.open_dataset``; per footprint, the particle fractions sum to
+Σ ``column_weight`` (checked here before writing).
+
+Command line::
+
+    uv run python -m name_satellite.processing MONTH_FOLDER OUT_FOLDER [--days=YYYYMMDD,...]
+
+MONTH_FOLDER is ``prepare``'s month folder (every ``YYYYMMDD`` day folder in it is processed,
+unless ``--days`` names some); the file is written into OUT_FOLDER and must not exist yet.
+``--test`` runs are refused. A single day is fine on the sci node; a full month is heavy
+processing, for LOTUS2 (docs/jasmin.md).
 
 The steps, for each day:
 
@@ -96,7 +114,9 @@ def read_day(day_folder, allow_test=False):
         release group).
 
     Raises:
-        ValueError if a file is missing or inconsistent with the others.
+        ValueError if it is a ``--test`` run (unless allowed), the fields are not in ppm s, the
+        fate heights are not m agl, or the fate records are not as expected (X20).
+        FileNotFoundError if a file is missing.
     """
     day_folder = Path(day_folder)
     info = json.loads((day_folder / "day.json").read_text())
@@ -110,8 +130,13 @@ def read_day(day_folder, allow_test=False):
     plan = pd.read_csv(
         day_folder / "release_plan.csv",
         parse_dates=["release_start", "release_end"],
-        dtype={"sounding_id": str},
+        dtype={"release_group": str},
     )
+    if "release_group" not in plan:
+        raise ValueError(
+            f"{day_folder}/release_plan.csv has no release_group column: prepared before "
+            "2026-11-13 (when it was called sounding_id); prepare the day again"
+        )
     output = day_folder / "output"
     fields = read_fields_folder(output)
     if set(fields["units"].values) != {"ppm s"}:
@@ -339,7 +364,7 @@ def process_day(day_folder, allow_test=False):
     if sorted(fields["source"].values) != sorted(plan.index):
         raise ValueError("Fields sources and release plan sources differ")
     plan["source_number"] = [int(name.removeprefix("SourceID_")) for name in plan.index]
-    groups = plan.groupby("sounding_id")
+    groups = plan.groupby("release_group")
     for group_id, releases in groups:
         if sorted(releases["level_number"]) != list(range(1, n_levels + 1)):
             raise ValueError(f"Group {group_id} does not have release levels 1..{n_levels}")
@@ -351,9 +376,9 @@ def process_day(day_folder, allow_test=False):
         raise ValueError("release_groups.csv and the release plan have different groups")
 
     # Release-plan order: group by group (first appearance), level 1..n within each.
-    group_order = list(dict.fromkeys(plan["sounding_id"]))
+    group_order = list(dict.fromkeys(plan["release_group"]))
     ordered = plan.sort_values(["level_number"]).sort_values(
-        "sounding_id", key=lambda s: s.map(group_order.index), kind="stable"
+        "release_group", key=lambda s: s.map(group_order.index), kind="stable"
     )
     source_names = ordered.index.to_numpy().reshape(len(group_order), n_levels)
 
@@ -417,8 +442,8 @@ def process_day(day_folder, allow_test=False):
     # --- Release layers and met of each sounding's group. ----------------------------------
     release_pressure = plan.loc[source_names.ravel(), "z_pa"].to_numpy().reshape(level_shape)
     release_thickness = plan.loc[source_names.ravel(), "dz_pa"].to_numpy().reshape(level_shape)
-    level_1 = ordered[ordered["level_number"] == 1].set_index("sounding_id").loc[group_order]
-    met = day["met"].set_index("sounding_id").loc[group_order]
+    level_1 = ordered[ordered["level_number"] == 1].set_index("release_group").loc[group_order]
+    met = day["met"].set_index("release_group").loc[group_order]
     g = group_index
     s_dim, fp_dim = "sounding_id", "footprint"
     rates = PARTICLE_RATES[product]
@@ -651,6 +676,9 @@ def write_footprint_file(ds, path):
     Args:
         ds: Dataset from ``assemble``.
         path: output file, e.g. ``GOSAT1v10-BRAZIL-column_NAME_UMG_SOUTHAMERICA_inert_201301.nc``.
+
+    Raises:
+        FileExistsError if ``path`` exists.
     """
     path = Path(path)
     if path.exists():
@@ -747,6 +775,7 @@ if __name__ == "__main__":
         sys.exit(usage)
     chosen = [a.removeprefix("--days=").split(",") for a in sys.argv[1:] if a.startswith("--days=")]
     month = process_month(args[0], days=chosen[0] if chosen else None)
+    Path(args[1]).mkdir(parents=True, exist_ok=True)
     out = Path(args[1]) / footprint_file_name(month)
     write_footprint_file(month, out)
     print(f"{out}: {month.sizes['sounding_id']} soundings")
