@@ -139,8 +139,7 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   and handled (X20 entry): repeats 180 s apart, and exits exactly on the edge as printed.
 - ☑ Error of storing one column footprint per release group (storage only; D20's shared releases
   are unaffected), measured on that day (`dev/scripts/method_studies/measure_grouping_error.py`; results in the
-  spec): median 0.2%, max 0.9% in totals. Whether to share is for the group (open question 13);
-  until then one per sounding.
+  spec): median 0.2%, max 0.9% in totals. Decided: one footprint per sounding (D26).
 - D20's own assumption (a group's release stands in for each member's): in January 2013 every
   multi-sounding group is repeat exposures of one spot; members lie within 2.1 km of the group's
   release centre (median 0.4 km, 99% within 1.9 km), inside a release box ~11 km across.

@@ -54,9 +54,10 @@ float srr(footprint, latitude, longitude) ;
 
 A reader gets each sounding's footprint with `ds.srr.isel(footprint=ds.footprint_index)`.
 
-- **At first, `footprint` = `sounding_id`** (`footprint_index` = 0, 1, 2, ...): every footprint is
-  exact for its sounding.
-- **Later, if the group agrees**, the soundings of a release group could share one footprint, after
+- **`footprint` = `sounding_id`** (`footprint_index` = 0, 1, 2, ...): every footprint is exact for
+  its sounding. **Decided (D26, 2026-11-13): soundings of a release group do not share a
+  footprint.** The measurement behind that decision follows.
+- Considered: the soundings of a release group could share one footprint, after
   we have measured the error that introduces (members differ only through their weights; compare
   cell by cell, in totals, and in modelled XCH4 with a prior flux field, against the particle
   noise). The shared footprint would be labelled by the group's earliest sounding. Sharing would
