@@ -55,7 +55,9 @@ repository.
   and the input file's `Threads` must be equal (`lotus.py`).
 
 ## Output formats
-- Output Format letters: I = indices, A = align, Z = zero lines suppressed, 2 = NAME II text.
+- Output Format letters: I = include grid indices, A = align columns, Z = also write all-zero grid
+  points (the default omits them), 2 = legacy NAME II layout (NAME docs B01, A01 Table 1.12). We
+  use `IA`.
 - Fields-file headers (NAME III format) print "X/Y grid origin" equal to the input's `X Min` /
   `Y Min`, which is also the printed coordinate of cell 1: the origin is the centre of the first
   cell (stage 1 8.7.1 and legacy 7.2 files: −91.32900). NAME II-format headers were not checked
