@@ -20,12 +20,12 @@ release becomes the same change of the footprint):
 
 The difference made is then compared with pure particle noise: the stage 1 seed pair (two runs of
 1 Jan 2013 that differ only in their random seed), with the same measures
-(``validation.shape_difference`` at several coarsenings, ``validation.total_ratio``). The seed
+(``validation.compare.shape_difference`` at several coarsenings, ``validation.compare.total_ratio``). The seed
 pair used the legacy particle rates, so its noise is somewhat larger than the new runs' (D22:
 variance −37% in cells); both are printed.
 
 Usage:
-    uv run python dev/scripts/synthetic_grouping_test.py PROCESSED_FILE OBS_FILE STAGE1_FOLDER
+    uv run python dev/scripts/method_studies/synthetic_grouping_test.py PROCESSED_FILE OBS_FILE STAGE1_FOLDER
 """
 
 import sys
@@ -34,7 +34,7 @@ import numpy as np
 import xarray as xr
 
 from name_satellite.releases import footprint_box_degrees
-from name_satellite.validation import shape_difference, total_ratio
+from name_satellite.validation.compare import shape_difference, total_ratio
 
 FOOTPRINT_KM = 10.5  # GOSAT-1 (domains.GOSAT_BRAZIL.footprint_km)
 COARSENINGS = (1, 2, 4)

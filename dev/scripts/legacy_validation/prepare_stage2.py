@@ -16,7 +16,7 @@ surface pressure (D16). Every plan is checked against the legacy input file befo
 Also writes a met-restore job; the NAME jobs must wait for it (submit with
 --dependency=afterok:<restore job>).
 
-    uv run python dev/scripts/prepare_stage2.py /work/scratch-pw5/mattrigby/name-satellite/stage2_20261109
+    uv run python dev/scripts/legacy_validation/prepare_stage2.py /work/scratch-pw5/mattrigby/name-satellite/stage2_20261109
 """
 
 import sys
@@ -27,7 +27,6 @@ import pandas as pd
 import xarray as xr
 
 from name_satellite.batching import combine_release_plans
-from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
 from name_satellite.met import met_version_for_period
 from name_satellite.name_input import (
@@ -37,8 +36,12 @@ from name_satellite.name_input import (
     run_timing,
     write_name_input,
 )
-from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
+from name_satellite.validation.legacy_files import (
+    legacy_surface_pressure_hpa,
+    read_name_input_sources,
+)
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 REPO = Path(__file__).resolve().parents[2]
@@ -60,7 +63,7 @@ RESTORE_JOB = """\
 #SBATCH --error={work}/restore-%j.err
 
 cd {repo}
-time ~/.local/bin/uv run --no-sync python dev/scripts/restore_met.py {version} {start} {end} {folder}
+time ~/.local/bin/uv run --no-sync python -m name_satellite.met_restore {version} {start} {end} {folder}
 """
 
 

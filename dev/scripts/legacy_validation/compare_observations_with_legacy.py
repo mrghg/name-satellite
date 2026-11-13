@@ -3,7 +3,7 @@
 The legacy reference is written by run_legacy_gosat.py (binned.nc and unbinned.nc). Soundings are
 matched by exposure ID (for bins: the comma-joined IDs of the bin's soundings).
 
-    uv run python dev/scripts/compare_observations_with_legacy.py L2_FILE LEGACY_FOLDER
+    uv run python dev/scripts/legacy_validation/compare_observations_with_legacy.py L2_FILE LEGACY_FOLDER
 """
 
 import sys

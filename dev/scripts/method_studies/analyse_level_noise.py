@@ -18,7 +18,7 @@ from run B's fate file). Prints the shares of footprint and noise by level and c
 allocations. Caveats: one day, legacy levels (CCI v7.2, 17 levels, 19 km top); the allocations are
 judged on the runs they were chosen from.
 
-    uv run python dev/scripts/analyse_level_noise.py /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
+    uv run python dev/scripts/method_studies/analyse_level_noise.py /work/scratch-pw5/mattrigby/name-satellite/stage1_20261109
 """
 
 import sys
@@ -30,8 +30,8 @@ import xarray as xr
 
 from name_satellite.footprints import footprint_from_mixing_ratio, grid_cell_area_m2
 from name_satellite.name_output import read_fields, read_name_fate_file
-from name_satellite.refdata import ref_path
-from name_satellite.validation import coarsen
+from name_satellite.validation.compare import coarsen
+from name_satellite.validation.refdata import ref_path
 
 LEVELS = 17  # released by the stage 1 runs
 COMPARE = 16  # levels modelled by new runs (D21)

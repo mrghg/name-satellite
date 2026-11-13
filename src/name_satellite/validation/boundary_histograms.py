@@ -66,7 +66,7 @@ def legacy_boundary_histograms(particles, lat, lon, n_sources, variant="2019"):
         particles: DataFrame from ``name_output.read_acrg_particle_file`` (columns ``lon``, ``lat``,
             ``height_m_agl``, ``source_number``).
         lat, lon: cell-centre coordinates of the output grid (degrees). For bit-exact legacy
-            results build them with ``legacy.legacy_grid_coordinates``.
+            results build them with ``legacy_files.legacy_grid_coordinates``.
         n_sources: number of NAME sources in the run; sources are numbered 1..n_sources.
         variant: "2019" or "2025" (see module docstring).
 

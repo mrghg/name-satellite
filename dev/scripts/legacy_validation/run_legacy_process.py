@@ -7,7 +7,7 @@ become exact month-scale tests for our new processing code.
 This script uses the legacy code, so it runs in the legacy environment, not in uv:
 
     module load jaspy/3.12/v20250704
-    PYTHONPATH=~/code/NAME_processing python dev/scripts/run_legacy_process.py WORKSPACE FIELDS_FOLDER
+    PYTHONPATH=~/code/NAME_processing python dev/scripts/legacy_validation/run_legacy_process.py WORKSPACE FIELDS_FOLDER
 
 WORKSPACE must be a COPY of the inputs in scratch (never `data/`), laid out as the legacy code
 expects:

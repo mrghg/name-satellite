@@ -86,12 +86,18 @@ under `/work/scratch-pw5/$USER/name-satellite` unless `NAME_SATELLITE_SCRATCH` /
 ## Repository layout
 
 ```
-src/name_satellite/   the Python package
-tests/                pytest tests (reference-data tests marked `refdata`)
-docs/                 workflow, run-a-day guide, file spec, plan, decisions, deviations, JASMIN
-dev/notes/            detailed findings from investigating the legacy code, NAME and data
-dev/scripts/          one-off verification scripts used to establish those findings
-data/                 local reference data (git-ignored)
+src/name_satellite/              the package: every module the new runs use (prepare -> NAME -> processing)
+src/name_satellite/validation/   not needed for new runs: reproducing the legacy pipeline (legacy_files,
+                                 legacy_pipeline, boundary_histograms, column), the reference-data
+                                 registry (refdata) and the measures for comparing runs (compare)
+tests/                           pytest tests (reference-data tests marked `refdata`)
+docs/                            workflow, run-a-day guide, file spec, plan, decisions, deviations, JASMIN
+dev/notes/                       detailed findings from investigating the legacy code, NAME and data
+dev/scripts/legacy_validation/   stage 1-2 validation against the legacy runs and legacy code
+dev/scripts/name_tests/          small NAME runs testing NAME itself (threads, fate records, set-up)
+dev/scripts/method_studies/      studies behind decisions D19-D23 (layers, particle rates, grouping)
+dev/scripts/figures/             figures for the group slides
+data/                            local reference data (git-ignored)
 ```
 
 ## Licence and third-party software

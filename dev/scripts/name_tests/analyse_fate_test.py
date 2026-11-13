@@ -9,7 +9,7 @@ appears, lists the particles recorded more than once, compares the fate codes wi
 inferred from position, and (with ``--stock RUN``) compares the records with a stock run of the
 same input: with the same random seed, the particles should be in the same places.
 
-    uv run python dev/scripts/analyse_fate_test.py RUN_FOLDER [--stock STOCK_RUN_FOLDER]
+    uv run python dev/scripts/name_tests/analyse_fate_test.py RUN_FOLDER [--stock STOCK_RUN_FOLDER]
 """
 
 import sys

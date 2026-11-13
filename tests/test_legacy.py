@@ -1,9 +1,9 @@
-"""Tests for name_satellite.legacy (readers for legacy pipeline files)."""
+"""Tests for name_satellite.validation.legacy_files (readers for legacy pipeline files)."""
 
 import numpy as np
 import pytest
 
-from name_satellite.legacy import read_legacy_met_folder, read_name_input_sources
+from name_satellite.validation.legacy_files import read_legacy_met_folder, read_name_input_sources
 
 N_LEVELS = 17
 

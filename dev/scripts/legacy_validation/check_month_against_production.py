@@ -6,7 +6,7 @@ run (the run the production footprints came from), writes the result with
 (``refdata`` "production_201301") for exact equality. The release length is 60 s (the
 archive has no time_step.txt).
 
-    uv run python dev/scripts/check_month_against_production.py RUN_FOLDER OUTPUT_FOLDER
+    uv run python dev/scripts/legacy_validation/check_month_against_production.py RUN_FOLDER OUTPUT_FOLDER
 
 RUN_FOLDER is the ``SOUTHAMERICA_GOSAT-BRAZIL_column`` folder (MixR_files, Particle_files, Met,
 Observations). OUTPUT_FOLDER must not exist yet.
@@ -18,10 +18,10 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from name_satellite.legacy import read_legacy_met_folder
-from name_satellite.legacy_pipeline import process_legacy_inputs, write_legacy_fp_file
 from name_satellite.name_output import read_acrg_particle_file, read_fields
-from name_satellite.refdata import ref_path
+from name_satellite.validation.legacy_files import read_legacy_met_folder
+from name_satellite.validation.legacy_pipeline import process_legacy_inputs, write_legacy_fp_file
+from name_satellite.validation.refdata import ref_path
 
 TAG = "SOUTHAMERICA_GOSAT-BRAZIL_column"
 RELEASE_SECONDS = 60.0

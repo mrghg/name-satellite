@@ -12,7 +12,7 @@ Reads the processed footprint files of the stage 1 runs (A, B, B2) and the stage
 
 matplotlib and cartopy are not project dependencies, so run with:
 
-    uv run --with matplotlib --with cartopy python dev/scripts/make_slide_figures.py OUTPUT_FOLDER
+    uv run --with matplotlib --with cartopy python dev/scripts/figures/make_slide_figures.py OUTPUT_FOLDER
 """
 
 import sys
@@ -29,8 +29,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from name_satellite.refdata import ref_path
-from name_satellite.validation import near_field_ratio, shape_difference
+from name_satellite.validation.compare import near_field_ratio, shape_difference
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 STAGE1 = SCRATCH / "stage1_20261109"

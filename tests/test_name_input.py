@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from name_satellite.legacy import read_name_input_sources
 from name_satellite.met import (
     MET_ARCHIVE,
     MET_VERSIONS,
@@ -23,6 +22,7 @@ from name_satellite.name_input import (
     run_timing,
 )
 from name_satellite.releases import build_release_plan, footprint_box_degrees
+from name_satellite.validation.legacy_files import read_name_input_sources
 
 # The legacy SOUTHAMERICA set-up (from the 2019 legacy input file).
 GRID = OutputGrid(nx=190, ny=357, dx=0.352, dy=0.234, x_min=-91.329, y_min=-60.981)

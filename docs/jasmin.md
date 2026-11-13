@@ -64,7 +64,7 @@ Avoid putting more than 100,000 files in one directory.
 Met top ≈ 29 km (eta 0.364 × 80 km).
 
 ## Running NAME 8.7.1 (checked 2026-11-09, debug job 66266117)
-Environment, as in the NAME team's demo scripts (`dev/scripts/prepare_debug_run.py` writes it):
+Environment, as in the NAME team's demo scripts (`dev/scripts/name_tests/prepare_debug_run.py` writes it):
 
 ```bash
 module load jaspy

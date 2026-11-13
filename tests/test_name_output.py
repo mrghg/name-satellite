@@ -6,13 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from name_satellite.legacy import read_name_input_sources
 from name_satellite.name_output import (
     particle_counts,
     read_acrg_particle_file,
     read_fields,
     read_fields_folder,
 )
+from name_satellite.validation.legacy_files import read_name_input_sources
 
 # ---------------------------------------------------------------------------------------------
 # A tiny hand-made fields file: 3 x 2 grid, 2 sources, one all-zero row left out (as NAME does)

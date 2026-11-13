@@ -1,12 +1,12 @@
 """Compare a newly processed footprint file with a legacy reference file.
 
-Used after dev/scripts/run_legacy_process.py: does today's legacy processing code reproduce the
+Used after dev/scripts/legacy_validation/run_legacy_process.py: does today's legacy processing code reproduce the
 footprint files that were made in 2018/2019?
 
 Only the soundings present in the NEW file are compared (it may cover just a few days).
 Soundings are matched by time; the files are read-only here.
 
-    uv run python dev/scripts/compare_processed.py NEW_FILE REFERENCE_FILE
+    uv run python dev/scripts/legacy_validation/compare_processed.py NEW_FILE REFERENCE_FILE
 
 For each variable it reports whether values are identical, and otherwise the largest
 relative difference. The footprint is called `fp` in old files and `srr` in newer ones; both

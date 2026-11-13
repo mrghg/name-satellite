@@ -12,9 +12,9 @@ Releases differ only in their pressures (``z_pa``, ``dz_pa``), so with the same 
 footprint differences are the effect of D19, plus the noise from particles taking different
 paths.
 
-    uv run python dev/scripts/prepare_d19_comparison.py WORK_FOLDER
+    uv run python dev/scripts/method_studies/prepare_d19_comparison.py WORK_FOLDER
     bash WORK_FOLDER/submit.sh
-    uv run python dev/scripts/compare_d19.py WORK_FOLDER     (when both have finished)
+    uv run python dev/scripts/method_studies/compare_d19.py WORK_FOLDER     (when both have finished)
 
 Assumes the met for December 2012 - 1 January 2013 is already restored (it is, from the January
 2013 test runs) in ``prepare.MET_ROOT``.

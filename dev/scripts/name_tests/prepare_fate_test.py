@@ -10,7 +10,7 @@ Questions:
   * D14: is the pressure column present and sensible for every record (lateral exits, top exits,
     particles still inside at the end)?
 
-    uv run python dev/scripts/prepare_fate_test.py WORK_FOLDER [--patched]
+    uv run python dev/scripts/name_tests/prepare_fate_test.py WORK_FOLDER [--patched]
 
 ``--patched``: run the ACRG-patched NAME (``met.PATCHED_NAME_DIR``), whose fate records also
 carry each particle's per-source index and fate code, so duplicates can be identified exactly.
@@ -21,12 +21,15 @@ from pathlib import Path
 
 import xarray as xr
 
-from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
 from name_satellite.met import NAME_DIR, PATCHED_NAME_DIR, met_version_for_period
 from name_satellite.name_input import DispersionDomain, OutputGrid, RunSettings, write_name_input
-from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
+from name_satellite.validation.legacy_files import (
+    legacy_surface_pressure_hpa,
+    read_name_input_sources,
+)
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 LEGACY_RUN = ref_path("conc2018_input").parents[1]

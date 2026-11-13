@@ -9,7 +9,7 @@ pressure (X9), Mk6 met. Writes into a NEW folder (refuses to overwrite):
 
 Met is restored by NAME's restore script into a shared folder <scratch>/met/UMG_Mk6PT.
 
-    uv run python dev/scripts/prepare_debug_run.py /work/scratch-pw5/mattrigby/name-satellite/debug_20261109
+    uv run python dev/scripts/name_tests/prepare_debug_run.py /work/scratch-pw5/mattrigby/name-satellite/debug_20261109
     sbatch /work/scratch-pw5/mattrigby/name-satellite/debug_20261109/job.sbatch
 """
 
@@ -18,12 +18,15 @@ from pathlib import Path
 
 import xarray as xr
 
-from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
 from name_satellite.met import met_version_for_period
 from name_satellite.name_input import DispersionDomain, OutputGrid, RunSettings, write_name_input
-from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
+from name_satellite.validation.legacy_files import (
+    legacy_surface_pressure_hpa,
+    read_name_input_sources,
+)
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 

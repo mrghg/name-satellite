@@ -7,7 +7,7 @@ age, Mk6 met, timers on) with 1, 4 and 8 OpenMP threads, each in its own folder:
 
 Compare elapsed time, CPU efficiency (sacct) and NAME's timer summaries to choose a thread count.
 
-    uv run python dev/scripts/prepare_benchmark.py /work/scratch-pw5/mattrigby/name-satellite/benchmark_20261109
+    uv run python dev/scripts/name_tests/prepare_benchmark.py /work/scratch-pw5/mattrigby/name-satellite/benchmark_20261109
     for n in 1 4 8; do sbatch <work>/threads_$n/job.sbatch; done
 """
 
@@ -16,12 +16,15 @@ from pathlib import Path
 
 import xarray as xr
 
-from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
 from name_satellite.met import met_version_for_period
 from name_satellite.name_input import DispersionDomain, OutputGrid, RunSettings, write_name_input
-from name_satellite.refdata import ref_path
 from name_satellite.releases import build_release_plan
+from name_satellite.validation.legacy_files import (
+    legacy_surface_pressure_hpa,
+    read_name_input_sources,
+)
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 THREADS = (1, 4, 8)

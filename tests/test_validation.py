@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from name_satellite.validation import (
+from name_satellite.validation.compare import (
     coarsen,
     histogram_difference,
     near_field_ratio,

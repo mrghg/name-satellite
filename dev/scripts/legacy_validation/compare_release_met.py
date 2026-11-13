@@ -5,7 +5,7 @@ in temperature, pressure, wind and boundary-layer depth, and, for releases the l
 found underground (legacy pressure ≠ requested), the requested, legacy and new pressures beside
 the new run's surface pressure.
 
-    uv run python dev/scripts/compare_release_met.py WORK_FOLDER YYYYMMDD
+    uv run python dev/scripts/legacy_validation/compare_release_met.py WORK_FOLDER YYYYMMDD
 """
 
 import sys
@@ -14,9 +14,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from name_satellite.legacy import read_legacy_met_folder
-from name_satellite.refdata import ref_path
 from name_satellite.release_met import read_release_met
+from name_satellite.validation.legacy_files import read_legacy_met_folder
+from name_satellite.validation.refdata import ref_path
 
 LEGACY_RUN = ref_path("conc2018_input").parents[1]
 RUN_NAME = "SOUTHAMERICA_GOSAT-BRAZIL_column"

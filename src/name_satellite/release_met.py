@@ -293,15 +293,15 @@ def release_met_per_source(plan, release_met):
     """Release-point met for every source, in the layout of the legacy met files.
 
     This is what ``legacy_pipeline.process_legacy_inputs`` takes as ``met`` (as from
-    ``legacy.read_legacy_met_folder``), so NAME 8.7.1 runs processed the legacy way need no
+    ``legacy_files.read_legacy_met_folder``), so NAME 8.7.1 runs processed the legacy way need no
     separate met run. (``processing`` uses ``read_release_met`` directly instead.)
 
     Pressure: NAME reports the requested pressure for a release above the ground, and the model's
     surface pressure for one centred below it (X9). So for every release,
     ``pressure_pa = min(z_pa, surface pressure)``. Checked against the legacy met run on 1-2 Jan
-    2013 (dev/scripts/compare_release_met.py): equal to 0.02 Pa above ground; for the three
-    underground releases of 2 Jan, NAME 8.7.1's pressure equals its surface pressure exactly and
-    the legacy value within 2 Pa.
+    2013 (dev/scripts/legacy_validation/compare_release_met.py): equal to 0.02 Pa above ground;
+    for the three underground releases of 2 Jan, NAME 8.7.1's pressure equals its surface pressure
+    exactly and the legacy value within 2 Pa.
 
     Temperature, wind and boundary-layer depth are sampled at level 1 only (the legacy processing
     keeps only level 1's); other levels get NaN.

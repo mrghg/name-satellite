@@ -6,18 +6,18 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from name_satellite.boundary_histograms import (
-    LEGACY_HEIGHT_CENTRES_M,
-    _legacy_copy_source,
-    legacy_boundary_histograms,
-)
-from name_satellite.column import combine_levels, nearest_release_levels
 from name_satellite.footprints import (
     EARTH_RADIUS_M,
     footprint_from_mixing_ratio,
     grid_cell_area_m2,
 )
-from name_satellite.legacy_pipeline import process_day_legacy, write_legacy_fp_file
+from name_satellite.validation.boundary_histograms import (
+    LEGACY_HEIGHT_CENTRES_M,
+    _legacy_copy_source,
+    legacy_boundary_histograms,
+)
+from name_satellite.validation.column import combine_levels, nearest_release_levels
+from name_satellite.validation.legacy_pipeline import process_day_legacy, write_legacy_fp_file
 
 # ---------------------------------------------------------------------------------------------
 # Footprints
@@ -215,9 +215,9 @@ ROUNDING_STEP_DAYS = {"20130103", "20130110", "20130111", "20130113", "20130125"
 def test_golden_month_matches_production(refdata, tmp_path):
     """Legacy processing of all 31 days of the 2019 MR run reproduces the production file:
     every variable exactly, except one footprint cell (one rounding step) on ROUNDING_STEP_DAYS."""
-    from name_satellite.legacy import read_legacy_met_folder
-    from name_satellite.legacy_pipeline import process_legacy_inputs
     from name_satellite.name_output import read_acrg_particle_file, read_fields
+    from name_satellite.validation.legacy_files import read_legacy_met_folder
+    from name_satellite.validation.legacy_pipeline import process_legacy_inputs
 
     run = refdata("mr2019_month_fields_20130131").parents[1]
     tag = "SOUTHAMERICA_GOSAT-BRAZIL_column"

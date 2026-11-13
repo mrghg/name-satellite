@@ -6,7 +6,7 @@ sounding of one January 2013 day. To compare with the legacy met files at the tw
 can be underground (X9), there are two groups: group 1 samples the level-1 release pressures, group 2 (a copy of the
 same soundings) the level-2 pressures.
 
-    uv run python dev/scripts/prepare_release_met_test.py WORK_FOLDER [YYYYMMDD]   (default 20130101)
+    uv run python dev/scripts/legacy_validation/prepare_release_met_test.py WORK_FOLDER [YYYYMMDD]   (default 20130101)
 
 1 Jan has no underground releases; 2 Jan has three (level 1 of soundings 23, 25, 26).
 """
@@ -17,13 +17,16 @@ from pathlib import Path
 import pandas as pd
 import xarray as xr
 
-from name_satellite.legacy import legacy_surface_pressure_hpa, read_name_input_sources
 from name_satellite.lotus import write_job_script
 from name_satellite.met import met_version_for_period
 from name_satellite.name_input import DispersionDomain, OutputGrid, RunSettings, name_input_text
-from name_satellite.refdata import ref_path
 from name_satellite.release_met import release_met_blocks, release_met_soundings
 from name_satellite.releases import build_release_plan
+from name_satellite.validation.legacy_files import (
+    legacy_surface_pressure_hpa,
+    read_name_input_sources,
+)
+from name_satellite.validation.refdata import ref_path
 
 SCRATCH = Path("/work/scratch-pw5/mattrigby/name-satellite")
 LEGACY_RUN = ref_path("conc2018_input").parents[1]  # all January days
