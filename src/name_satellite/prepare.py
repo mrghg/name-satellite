@@ -194,7 +194,8 @@ def run_settings(site, run_folder, day, threads, test):
     record the settings in the footprint file, so it must stay deterministic.
 
     Raises:
-        ValueError (``met.met_version_for_period``) if that period spans a met-version change.
+        ValueError (``met.met_version_for_period``) if no single met version is archived for
+        that period (D25: only days 29 Apr - 11 May 2013).
     """
     met_version = met_version_for_period(day - pd.Timedelta(days=31), day + pd.Timedelta(days=1))
     settings = RunSettings(

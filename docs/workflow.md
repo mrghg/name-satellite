@@ -96,7 +96,8 @@ domain; `prepare` checks this per sounding against the model pressure at the dom
 **In:** the release plan, domain settings and the met version available for the dates. **Out:** a
 NAME input file per day: one source and one output request per release, plus particle-fate output.
 
-`met.met_version_for_period` picks the UM version (NAME team's 8.7.1 dates);
+`met.met_version_for_period` picks the UM version (NAME team's 8.7.1 dates; near a changeover
+the newer version is used from before its official date where the archive has it, D25);
 `required_met_files`/`missing_met_files` check the archive (all 3,542 Mk6 files for 1 Jan 2013
 are present). `name_input.write_name_input(path, plan, RunSettings(...))` writes the file in
 NAME 8.7.1 syntax, using the NAME team's met declarations and restore script. Checked by a short

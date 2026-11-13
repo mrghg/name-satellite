@@ -9,8 +9,10 @@ import xarray as xr
 
 from name_satellite.legacy import read_name_input_sources
 from name_satellite.met import (
+    MET_ARCHIVE,
     MET_VERSIONS,
     met_version_for_period,
+    missing_met_files,
     required_met_files,
 )
 from name_satellite.name_input import (
@@ -80,7 +82,43 @@ def test_met_version_choice():
     assert met_version_for_period("2022-05-04", "2022-06-01").name == "UMG_Mk11PT"
     assert met_version_for_period("2026-02-01", "2026-03-01").name == "UMG_Mk12PT"
     with pytest.raises(ValueError, match="No single met version"):
-        met_version_for_period("2013-04-01", "2013-05-15")  # Mk6 -> Mk7 changeover
+        met_version_for_period("2013-04-01", "2013-05-15")  # Mk7 archive starts 2013-04-11
+
+
+def test_met_version_near_a_changeover():
+    """D25: the version in use at the end of the period, used early where its archive allows."""
+    # 30-day back-run of 1 Aug 2017 (Mk10 from 11 Jul 2017, archived from 2 Jun 2017): Mk10.
+    assert met_version_for_period("2017-07-01", "2017-08-02").name == "UMG_Mk10PT"
+    # A period ending before the changeover keeps the old version.
+    assert met_version_for_period("2017-06-01", "2017-07-10").name == "UMG_Mk9PT"
+    # Day 12 May 2013 needs met from 11 Apr 2013: the first day of the Mk7 archive.
+    assert met_version_for_period("2013-04-11", "2013-05-13").name == "UMG_Mk7PT"
+    with pytest.raises(ValueError, match="archived from 2013-04-11"):
+        met_version_for_period("2013-04-10", "2013-05-12")  # day 11 May 2013
+    with pytest.raises(ValueError, match="starts after it ends"):
+        met_version_for_period("2013-01-02", "2013-01-01")
+
+
+def test_archive_first_day_is_not_after_first_day():
+    for version in MET_VERSIONS:
+        assert pd.Timestamp(version.archive_first_day) <= pd.Timestamp(version.first_day)
+
+
+@pytest.mark.slow
+def test_archive_holds_each_version_from_its_archive_first_day():
+    """Every file of the early-use period is in the archive (reads the NAME GWS; ~1 min)."""
+    if not MET_ARCHIVE.exists():
+        pytest.skip(f"met archive not available: {MET_ARCHIVE}")
+    for version in MET_VERSIONS:
+        start = pd.Timestamp(version.archive_first_day)
+        end = pd.Timestamp(version.first_day) + pd.Timedelta(hours=21)
+        files = required_met_files(version, start, end)
+        assert missing_met_files(version, files) == [], version.name
+        # The day before is not complete (so archive_first_day is the earliest day).
+        if version.archive_first_day != version.first_day:
+            day_before = start - pd.Timedelta(days=1)
+            earlier = required_met_files(version, day_before, day_before + pd.Timedelta(hours=21))
+            assert missing_met_files(version, earlier) != [], version.name
 
 
 def test_met_versions_are_contiguous():
@@ -177,7 +215,7 @@ def test_restore_met_files(tmp_path):
     with gzip.open(archive / "Global" / "X" / "MO1.pp.gz", "wb") as f:
         f.write(b"zipped met")
     (archive / "Global" / "X" / "MO2.pp").write_bytes(b"plain met")
-    version = MetVersion("X", "2000-01-01", None, "d.txt", "u.txt", "Global/X")
+    version = MetVersion("X", "2000-01-01", None, "2000-01-01", "d.txt", "u.txt", "Global/X")
 
     met = tmp_path / "met"
     counts = restore_met_files(version, ["MO1.pp", "MO2.pp"], met, archive=archive)

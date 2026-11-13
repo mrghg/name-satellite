@@ -8,6 +8,13 @@ A back-run of one day needs met from (earliest release - maximum particle age) t
 release. The UM global model is archived in "versions" (Mk6 ... Mk12); a run must use one version
 throughout (the legacy scripts shortened the run near changeovers, docs/deviations.md X2).
 
+Changeovers (D25): a run uses the version in use on its LAST day of met. If its back-run reaches
+before that version's official first day, the run still uses it, as long as the archive holds that
+version from the run's first day (``archive_first_day``: each newer version's archive starts 19-50
+days before its official date). So a 30-day back-run never mixes versions and is never shortened,
+except for days 29 Apr - 11 May 2013, whose back-runs reach before the Mk7 archive starts
+(2013-04-11): those are refused.
+
 The version dates below are those of the NAME team's own 8.7.1 demo scripts
 (``~/name/examples/DemoScripts_v8_7_1/AirHistoryBackRuns/BackRuns_OneSite_ByDay.sh``), NOT the
 legacy ACRG dates (which stopped at Mk10, X1). File names come from NAME's met definition files,
@@ -45,31 +52,47 @@ class MetVersion:
     name: str  # e.g. "UMG_Mk6PT"
     first_day: str  # first and last day this version is used for (inclusive), YYYY-MM-DD
     last_day: str | None  # None = still current
+    # First day from which the archive holds every file of this version (including the time step
+    # before midnight that NAME interpolates from), found by listing the archive on 2026-11-13
+    # and checked by tests/test_name_input.py. Earlier than first_day for Mk7 onwards (D25).
+    archive_first_day: str
     definition_file: str  # in NAME's Resources/Defns
     declaration_file: str  # in the demo CommonUtilities/MetDeclarations
     archive_folder: str  # under met_archive
 
 
 MET_VERSIONS = (
-    MetVersion("UMG_Mk6PT", "2010-03-09", "2013-04-29", "MetDefnUMG_Mk6_L59PTpp.txt",
+    MetVersion("UMG_Mk6PT", "2010-03-09", "2013-04-29", "2010-03-09",
+               "MetDefnUMG_Mk6_L59PTpp.txt",
                "Use_UMG_Mk6_L59PTpp.txt", "Global/UMG_Mk6PT"),
-    MetVersion("UMG_Mk7PT", "2013-04-30", "2014-07-14", "MetDefnUMG_Mk7_L59PTpp.txt",
+    MetVersion("UMG_Mk7PT", "2013-04-30", "2014-07-14", "2013-04-11",
+               "MetDefnUMG_Mk7_L59PTpp.txt",
                "Use_UMG_Mk7_L59PTpp.txt", "Global/UMG_Mk7PT"),
-    MetVersion("UMG_Mk8PT", "2014-07-15", "2015-08-24", "MetDefnUMG_Mk8_L59PTpp.txt",
+    MetVersion("UMG_Mk8PT", "2014-07-15", "2015-08-24", "2014-06-13",
+               "MetDefnUMG_Mk8_L59PTpp.txt",
                "Use_UMG_Mk8_L59PTpp.txt", "Global/UMG_Mk8PT"),
-    MetVersion("UMG_Mk9PT", "2015-08-25", "2017-07-10", "MetDefnUMG_Mk9_L59PTpp.txt",
+    MetVersion("UMG_Mk9PT", "2015-08-25", "2017-07-10", "2015-07-21",
+               "MetDefnUMG_Mk9_L59PTpp.txt",
                "Use_UMG_Mk9_L59PTpp.txt", "Global/UMG_Mk9PT"),
-    MetVersion("UMG_Mk10PT", "2017-07-11", "2022-05-03", "MetDefnUMG_Mk10_L59PTpp.txt",
+    MetVersion("UMG_Mk10PT", "2017-07-11", "2022-05-03", "2017-06-02",
+               "MetDefnUMG_Mk10_L59PTpp.txt",
                "Use_UMG_Mk10_L59PTpp.txt", "Global/UMG_Mk10PT"),
-    MetVersion("UMG_Mk11PT", "2022-05-04", "2026-01-20", "MetDefnUMG_Mk11_L59PTpp.txt",
+    MetVersion("UMG_Mk11PT", "2022-05-04", "2026-01-20", "2022-04-02",
+               "MetDefnUMG_Mk11_L59PTpp.txt",
                "Use_UMG_Mk11_L59PTpp.txt", "Global/UMG_Mk11PT"),
-    MetVersion("UMG_Mk12PT", "2026-01-21", None, "MetDefnUMG_Mk12_L59PTpp.txt",
+    MetVersion("UMG_Mk12PT", "2026-01-21", None, "2025-12-02",
+               "MetDefnUMG_Mk12_L59PTpp.txt",
                "Use_UMG_Mk12_L59PTpp.txt", "Global/UMG_Mk12PT"),
 )  # fmt: skip
 
 
 def met_version_for_period(start, end):
-    """The single met version covering every day from ``start`` to ``end`` (inclusive).
+    """The met version for a run needing met from ``start`` to ``end`` (inclusive; D25).
+
+    The version is the one in use (official dates) on the day of ``end``. If ``start`` is before
+    that version's official first day, the version is still used when its archive covers
+    ``start`` (``archive_first_day``), so a run near a changeover uses the newer version
+    throughout instead of mixing versions or being shortened.
 
     Args:
         start, end: first and last time of met needed (anything ``pandas.Timestamp`` reads; only
@@ -79,16 +102,25 @@ def met_version_for_period(start, end):
         The ``MetVersion``.
 
     Raises:
-        ValueError if the period spans a changeover (the run must then be shortened or split;
-        not yet supported).
+        ValueError if no version is in use on ``end``'s day, or the archive of that version
+        starts after ``start`` (the run would span a changeover; only days 29 Apr - 11 May 2013
+        for 30-day back-runs).
     """
     start = pd.Timestamp(start).normalize()
     end = pd.Timestamp(end).normalize()
+    if start > end:
+        raise ValueError(f"Met period starts after it ends: {start.date()} to {end.date()}")
     for version in MET_VERSIONS:
         first = pd.Timestamp(version.first_day)
         last = pd.Timestamp(version.last_day) if version.last_day else pd.Timestamp.max
-        if first <= start and end <= last:
+        if not first <= end <= last:
+            continue
+        if start >= pd.Timestamp(version.archive_first_day):
             return version
+        raise ValueError(
+            f"No single met version covers {start.date()} to {end.date()}: {version.name} is "
+            f"used from {version.first_day} and archived from {version.archive_first_day}"
+        )
     raise ValueError(f"No single met version covers {start.date()} to {end.date()}")
 
 
