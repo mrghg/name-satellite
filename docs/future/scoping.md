@@ -24,7 +24,9 @@ The FLEXPART-style alternative:
   time (e.g. CAMS or our own global product), as FLEXPART's sensitivity to initial conditions.
 * **Nested output grids.** Footprints on several grids whose cell sizes are multiples of each other
   and whose edges align on whole degrees (e.g. 0.1°, 0.5°, 2.5°), so finer cells sum exactly
-  into coarser ones. Fine near the sounding, medium over the region, coarse globally.
+  into coarser ones. **Both the fine and the medium grid follow each release group** (0.1°, ±5°;
+  0.5°, ±25°, about 2,800 km); only the coarse grid is shared and global. Nothing is defined per
+  site. (The first tests used a fixed 0.5° box over South America for simplicity.)
 * **Tiles for storage and the inversion.** Processing cuts the grids into fixed geographic tiles
   and stores only those a sounding touches; the inversion chooses its region and resolution
   afterwards.
@@ -56,24 +58,37 @@ The FLEXPART-style alternative:
 
 ## Using the nested grids in an inversion
 
-Two kinds of high-resolution area must not be confused:
+Two kinds of grid must not be confused:
 
-* the **inversion's fine area**: where the inversion solves for fluxes at 0.1°, chosen once for
-  all soundings (made of fixed tiles);
-* each **sounding's fine grid**: its own 0.1° output grid, ±5° around its release, which follows
-  the sounding.
+* the **inversion's grid**: where the inversion solves for fluxes at 0.1°, where at 0.5° and
+  where at 2.5°, chosen once for all soundings (made of fixed tiles);
+* each **sounding's output grids**: 0.1° within ±5° and 0.5° within ±25° of its release (shared
+  by its release group), and the global 2.5° grid.
 
-To fill one sounding's row of H, take each flux cell of the inversion:
+To fill one sounding's row of H, take each flux cell of the inversion and use **the finest grid
+the sounding has there; if that is coarser than the flux cell, spread its value evenly** over
+the flux cells it contains:
 
-1. a 0.1° flux cell inside the sounding's fine grid: its 0.1° footprint;
-2. a 0.1° flux cell outside the sounding's fine grid: the sounding's 0.5° value, spread evenly
-   over the 25 fine cells (the footprint is assumed smooth within a 0.5° cell; this only happens
-   ≳450 km from the sounding, while everything within 300 km is always on its fine grid);
-3. a 0.5° flux cell: its 0.5° footprint (equal to the sum of its 0.1° cells, to ~0.1%);
-4. a 2.5° flux cell outside the region: its 2.5° footprint.
+1. a 0.1° flux cell inside the sounding's 0.1° grid: its 0.1° footprint;
+2. a 0.1° flux cell outside it: the sounding's 0.5° value, spread over the 25 fine cells (the
+   footprint is assumed smooth within a 0.5° cell; this only happens ≳450 km from the
+   sounding, while everything within 300 km is always on its fine grid);
+3. a 0.5° flux cell inside the sounding's 0.5° grid: its 0.5° footprint (equal to the sum of its
+   0.1° cells, to ~0.1%);
+4. a 0.5° flux cell outside it: the sounding's 2.5° value, spread over the 25 cells (≳2,500 km
+   from the sounding);
+5. a 2.5° flux cell: its 2.5° footprint.
 
-This needs every level's cell edges on the coarser level's lines (aligned on whole degrees, ×5
-nesting), so no cell straddles two coarser ones.
+The inversion's region can therefore be anywhere: each sounding brings the grids it has. The
+file records, per sounding, the offsets of its 0.1° and 0.5° grids in global grids of those
+resolutions.
+
+This needs every level's cell edges on the coarser level's lines, so no cell straddles two
+coarser ones. All grids share the origin (−180°, −90°) and 2.5 = 5 × 0.5 = 25 × 0.1, and **both
+release-centred boxes snap outward to the 2.5° lines**: each covers whole 2.5° cells (the ±5° box
+becomes 10–12.5° wide, at most 1.6× the cells). A 2.5° cell is then the natural storage tile, and
+every coarse cell is either wholly inside a finer box or wholly outside it. (The first tests'
+fine boxes were on 0.1° lines only.)
 
 ## Batching releases
 
@@ -213,6 +228,8 @@ a real scheme aligns every level.
 * F5. Back-run length: 240 h proposed (Results); confirm with F9.
 * F6. Particles per release needed for 0.1° footprints near the sounding.
 * F7. Tile scheme (sizes per level) and the file format the inversion would read.
+* F10. Size of the release-centred 0.5° grid (±25° proposed): measure memory, run time and how
+  much of a 10-day footprint falls outside it; compare with one shared global 0.5° grid.
 * F8. Why nested grids differ by ~0.1% (mixing-ratio conversion per cell?), and whether to
   output a quantity that adds exactly.
 * F9. Boundary term: sample a global CH4 field (e.g. CAMS) at the end positions and compare
