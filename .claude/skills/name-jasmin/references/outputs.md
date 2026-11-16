@@ -55,3 +55,26 @@ Readers: `~/code/name-satellite/src/name_satellite/name_output.py` (`read_fields
 ## Point output (`<group>_C1.txt`, on a `Locations:` set)
 Fields-file layout with 15 header rows; preliminary columns `T Index, Location Index, T,
 Location`; one row per location; 7 significant figures.
+
+## Particle positions on a time grid (`<Output Name>_C1.txt`, particle output with a `T-Grid`)
+Test of 16 Nov 2026 (job 2295092; GLIDE smoke test, 3 one-hour releases at 6/s, 1 h travel,
+backwards, hourly grid of 4 times from T0 = end of the last release):
+- A `Sets of Particle/Puff Information` row with `Fate Info? = No` and a `T-Grid` writes every
+  live particle at each grid time. Columns: `Puff?, PP Index` (per-source particle number, the
+  same index as the patched fate records), `Source Index, Source, Release Time, Time, Travel Time`
+  (**seconds**), `X, Y, Z` (in the requested Z-Coord), turbulent velocities and puff spreads.
+  10 header lines before the column heading.
+- In a backwards run the grid counts back from T0 (as for fields). Nothing is written at T0
+  itself when no particle exists yet.
+- A particle that reaches the maximum travel time stops moving at exactly that age (fate record
+  age = 1.000 h for all 64,803 particles) but stays listed, frozen at that age, until the end of
+  that sync step; it is removed after. So output at a grid time can include particles held at the
+  maximum age (1,800 = one 5-min sync step at 6/s).
+- A one-hour source at `6/sec` released **21,601** particles (rate × 3,600 + 1), in both the
+  fate and position outputs.
+
+## Met quantities at a point: availability with UM Mk10 met
+Same test: `Topography` (m) and `Pressure (Pa)` / `Boundary Layer Depth` at 0 m agl were
+written (Mace Head: 1.32 m, 103,462.5 Pa, 134 m). **`Land Fraction` came back as -3.402823E+38**
+(the missing-value marker): the Mk10 met does not supply it, so NAME cannot report a point's land
+or sea type from these fields.

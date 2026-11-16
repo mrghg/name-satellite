@@ -38,6 +38,11 @@ with Matt Rigby unless noted.
   species; weights can be negative or near zero; per-level diagnostics are lost.
 - **(b) NAME NetCDF output:** route `N` with the NetCDF executable. Caveat: dense output size.
   Note: PR #23's "IA2" is the NAME II *text* format, not NetCDF.
+- **(c) Deep convection on (`New`).** NAME's user guide recommends the `New` scheme for global
+  met (A01 §1.7.6); the satellite pipeline, like the legacy and site templates, runs with `No`.
+  Matt, 2026-11-16: future runs should follow NAME's recommendations, so switch it on once the
+  baseline is validated, with a `docs/deviations.md` entry and a measured effect on column
+  footprints. It costs extra run time. The GLIDE reference runs already use `New`.
 
 ## Open questions
 Numbers are kept when a question is resolved (see the list below), so references stay valid.

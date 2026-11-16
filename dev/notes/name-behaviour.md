@@ -77,6 +77,25 @@ repository.
 - NetCDF field output needs the NetCDF executable (`nameiii_eccodes_NetCDF_64bit_par.exe` in
   8.7.1); Mk12 met definitions exist only in 8.7.1.
 
+## GLIDE reference-run smoke test (2026-11-16, job 2295092; Mk10, EUR box, 3 one-hour releases)
+- Accepted together: `Deep Convection? = New`, 5-min sync time, boundary-layer limits 100-4500 m
+  (met declarations), a zero-size `Cuboid` point source in `m agl` (`dZ-Metres? = Yes`), particle
+  positions on an hourly time grid, and point met at the receptor. Empty error file; 21 s.
+- `6/sec` for one hour released 21,601 particles per source (rate x 3,600 + 1).
+- The maximum travel time is exact: all fate records at 1.000 h. A particle at the limit stops
+  moving but stays listed (frozen) until the end of the sync step.
+- Position output (`T-Grid` on a particle request): travel time in seconds, per-source particle
+  index as in the patched fate records; backwards grid counts back from T0.
+- `Land Fraction` at a point is the missing value (-3.402823E+38) with Mk10 met; `Topography`
+  works (Mace Head 1.32 m).
+
+## Pressure sources and identical sources (2026-11-16, GLIDE tests 2 and 3, Mk10)
+- A `Cuboid` source in `Pa` spreads particles evenly in pressure (job 2296900, Lamont 950-100 hPa:
+  flat histogram of starting pressure; 49.8% below the middle pressure).
+- Two identical sources in one `Fixed` run do not share random numbers (job 2296902: 0 of 21,601
+  end positions equal; footprint totals 13.929 vs 13.924 m2 s/mol after 6 h).
+- Lamont, 8 Jul 2019 19:00: model ground 308.9 m, surface pressure 97,643 Pa, BL depth 1,358 m.
+
 ## Threading benchmark (2026-11-09; 1 Jan 2013, 425 releases, 24 h, Mk6, debug queue)
 | Threads | Total | Particle loop | Other | Speed-up | Efficiency |
 |---|---|---|---|---|---|
@@ -92,3 +111,14 @@ summary is in `<input>Timing.txt`; `sacct` TotalCPU shows 0 under mpirun.
 NAME can exit 0 while writing errors to `<input>Error.txt` (e.g. particles lost when two jobs restored
 met into the same folder at once). Judge a run by its error file; our job scripts fail if it is not
 empty (`lotus.py`).
+
+## Memory and run time with the GLIDE settings (2026-11-16, job 2301599)
+5,184,024 particles alive at once (24 one-hour sources at 60/s, 24 h travel, EUR box, Mk10,
+deep convection New, 5-min sync, 8 threads): MaxRSS 5.1 GB; 14.5 min wall, 109 CPU-min
+(~0.9 CPU-min per million particle-hours).
+
+## Patched against stock 8.7.1, full 240 h runs (2026-11-16, jobs 2306225 and 2306228)
+Same input (Fixed seed, 24 one-hour sources at Mace Head, 240 h, EUR box): identical fate records
+for all 518,424 particles (as sets of source, age and position); footprints identical except one
+value of 24 x 44,361, which differs in the 7th significant figure (10.50166 vs 10.50167 ppm s).
+Two runs of the patched build with the same input are bit-identical (jobs 2306225, 2306226).

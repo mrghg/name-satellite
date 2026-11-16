@@ -48,6 +48,17 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
 - `Sets of Dispersion Options` names the domain as `Computational Domain` and sets the sync time
   (e.g. `00:06`). In our runs fate records appeared only at certain phases of the sync cycle
   (observation; the docs say only that they are written when a particle is removed).
+- **`Deep Convection?` has no default**: it must be `No`, `Old` or `New` (B01). NAME's user guide
+  recommends switching it on with `New` (mass-flux scheme, Meneguz and Thomson 2014) for global
+  met, except for UKV-only runs, and warns it costs extra run time (A01 §1.7.6). **Our satellite
+  runs, the legacy satellite and site templates, and the NAME team's back-run demo template all use
+  `No`.** Matt's direction (16 Nov 2026): future runs should follow NAME's recommendations, so
+  new setups should use `New`. Changing the satellite pipeline changes its numbers, so it needs a
+  `docs/deviations.md` entry (see `docs/decisions.md`, deferred options). The GLIDE reference runs
+  use `New`.
+- `Mesoscale Motions? = Yes` with no overrides is NAME's standard setup: since NAME 8 the velocity
+  variances and timescales come with each met series' definition (A01 §1.1; user values are
+  possible, A01 §1.7.5.3).
 - `Max # Particles` (same block) caps active particles: when reached, releases stop with
   warnings and the run carries on — leave ~20% headroom (A01 §1.5.6, §1.7.2).
 
@@ -62,6 +73,16 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   time makes NAME ignore the source (B03). Source `Max Age` defaults to infinity.
 - At most 3,000 sources per run for footprint field requests (one request per source per output time).
 
+## Pressure sources and identical sources (16 Nov 2026, GLIDE tests 2 and 3)
+- **A `Cuboid` source with `Z-Coord Pa` spreads its particles evenly in pressure**, not in height
+  (job 2296900: Lamont, 950-100 hPa, 300,000 particles; positions in Pa at under 60 s of travel
+  were flat across 17 bins of 50 hPa, 49.8% below the middle pressure; even in height would give
+  about 30%). So a column release even in air mass needs one source.
+- **Two identical sources in one `Fixed`-seed run get different random numbers** (job 2296902:
+  same place, height and hour at Mace Head, 6 h; no particle ended in the same place; footprint
+  totals 13.929 and 13.924 m2 s/mol). So in a `Fixed` run, sources (and hourly releases) are not
+  copies of each other.
+
 ## Grids and field requests
 - `Horizontal Grids: Name, H-Coord, nX, nY, dX, dY, X Min, Y Min` — **X Min / Y Min are the
   centre of the first cell**, not its edge.
@@ -74,6 +95,14 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   with nt = 1 at the chronologically earliest end of the window, `Av Time` = window length,
   `# Av Times` = window / sync time (keep averaging steps aligned with the sync time, A01 §1.4.1.2).
   Mixing ratio needs both an H-grid and a Z-grid and can't be vertically averaged (B01).
+- **Backwards runs: a time grid with nT > 1 counts back from T0.** Test of 16 Nov 2026 (job
+  2126561; 3 one-hour releases, max age 6 h, `Int` over 9 h): a grid with T0 = 12:00 and nT = 9
+  gave output times 12:00, 11:00, ... 04:00. Only the output whose window exactly covered the
+  earliest release end − max age to the latest release start (05:00) was complete, and it was
+  identical to the nT = 1 request at that time. The outputs at 06:00-12:00 (windows reaching past
+  the latest release start) were empty (header only), and 04:00 lacked the last release's first
+  hour (84% of its total). A single nT = 1 output after the releases (15:00) was also empty.
+  So use one nT = 1 output time at the earliest end of the window.
 - A blank H-Grid integrates over the whole computational domain; a blank Z-Grid integrates
   vertically (or averages over the boundary layer with `BL Average? = Yes`) (A01 §1.4.1.1).
 - **A `T-Array` time grid cannot be used for field output**: the run aborts with "UNEXPECTED

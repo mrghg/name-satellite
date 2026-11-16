@@ -85,6 +85,26 @@ class DispersionDomain:
 
 
 @dataclass(frozen=True)
+class ParticlePositionOutput:
+    """Every particle's position on a regular time grid (NAME particle output, file
+    ``Positions_C1.txt``).
+
+    ``first_time`` is the grid's T0, ``n_times`` and ``interval_minutes`` its size and spacing.
+    In a backwards run NAME counts the grid back from T0 (seen for field output,
+    dev/notes/name-behaviour.md), so T0 is the chronologically latest time. ``z_coord`` is the
+    vertical coordinate of the output ("m agl" or "Pa").
+    """
+
+    first_time: pd.Timestamp
+    n_times: int
+    interval_minutes: int
+    z_coord: str = "m agl"
+
+
+DEEP_CONVECTION_CHOICES = ("No", "Old", "New")
+
+
+@dataclass(frozen=True)
 class RunSettings:
     """Everything about a day's NAME run apart from the releases themselves.
 
@@ -109,6 +129,18 @@ class RunSettings:
     threads: int = 1
     random_seed: str = "Fixed"  # legacy used "Random (Parallel)"; "Fixed" makes runs repeatable
     min_bl_depth_m: float = 40.0  # legacy; the NAME demo declarations use 100 m
+    # Maximum boundary-layer depth (m). None keeps the value in the NAME team's met declarations
+    # (4,000 m), as legacy. The GLIDE reference runs set 4,500 m (glide_runs/spec.py).
+    max_bl_depth_m: float | None = None
+    # NAME's deep convection scheme: "No", "Old" or "New" (NAME documentation B01). Legacy and
+    # the satellite runs use "No"; NAME's user guide recommends "New" for global met (A01
+    # §1.7.6), and the GLIDE reference runs use it (docs/decisions.md, deferred option (c)).
+    deep_convection: str = "No"
+    # NAME's unresolved mesoscale motions ("meander"); its settings come with the met definition.
+    mesoscale_motions: bool = True
+    # Optional particle positions on a regular time grid (ParticlePositionOutput), e.g. for the
+    # GLIDE single-release runs. None (the satellite runs) writes no position output.
+    particle_positions: "ParticlePositionOutput | None" = None
     surface_layer_depth_m: float = 40.0  # footprint layer 0-40 m (legacy ZGrid1)
     fate_z_coord: str = "m agl"  # legacy and D24 (boundary bins in m agl)
     # Add NAME's met columns (incl. Pressure, Pa) to each fate record. Added for D14 (pressure
@@ -281,6 +313,12 @@ def species_block():
 
 
 def dispersion_options_block(settings):
+    if settings.deep_convection not in DEEP_CONVECTION_CHOICES:
+        raise ValueError(
+            f"Deep convection must be one of {DEEP_CONVECTION_CHOICES}, "
+            f"not {settings.deep_convection!r}"
+        )
+    mesoscale = "Yes" if settings.mesoscale_motions else "No"
     return (
         "Sets of Dispersion Options:\n"
         "Max # Particles, Max # Full Particles, Velocity Memory Time, "
@@ -289,7 +327,32 @@ def dispersion_options_block(settings):
         "Agent Decay?, Dry Deposition?, Wet Deposition?, Turbulence?, Mesoscale Motions?, "
         "Chemistry?\n"
         f"{settings.max_particles}, 2, 00:00, 00:00, 00:00, 00:00, 00:{settings.sync_minutes:02d}, "
-        "1, , Dispersion Domain, No, No, No, No, No, Yes, Yes, No\n"
+        f"1, , Dispersion Domain, {settings.deep_convection}, No, No, No, No, Yes, {mesoscale}, "
+        "No\n"
+    )
+
+
+def particle_output_block(settings):
+    """The fate records, and (optionally) particle positions on a time grid."""
+    if settings.particle_positions is None:
+        return particle_fate_block(settings)
+    # Both requests in one block, so the header gains a T-Grid column (blank for the fates).
+    met = "Yes" if settings.fate_met else "No"
+    p = settings.particle_positions
+    t0 = p.first_time.strftime(NAME_TIME_FORMAT)
+    dt = f"{p.interval_minutes // 60:02d}:{p.interval_minutes % 60:02d}"
+    return (
+        "Temporal Grids:\n"
+        "Name, nt, dt, t0\n"
+        f"TGridPositions, {p.n_times}, {dt}, {t0}\n"
+        "\n"
+        "Output Requirements - Sets of Particle/Puff Information:\n"
+        "Output Name, Particles?, Puffs?, Fate Info?, Met?, Mass?, Plume Rise?, "
+        "Dispersion Scheme?, Puff Family?, H-Coord, Z-Coord, T-Grid, Sync?, Output Route\n"
+        f"Particles, Yes, No, Yes, {met}, No, No, No, No, Lat-Long, {settings.fate_z_coord}, , "
+        "Yes, D\n"
+        f"Positions, Yes, No, No, No, No, No, No, No, Lat-Long, {p.z_coord}, TGridPositions, "
+        "Yes, D\n"
     )
 
 
@@ -327,6 +390,19 @@ def fields_output_group(index):
     return FIELDS_GROUP if group == 1 else f"{FIELDS_GROUP}_{group}"
 
 
+def source_vertical(release):
+    """Vertical coordinate, centre and full depth of one release.
+
+    Satellite plans give ``z_pa``/``dz_pa`` (Pa). Other plans (the GLIDE reference runs) give
+    ``z_coord`` ("Pa" or "m agl"), ``z`` and ``dz`` in that coordinate. Returns (z_coord, z, dz).
+    """
+    if hasattr(release, "z_coord"):
+        if release.z_coord not in ("Pa", "m agl"):
+            raise ValueError(f"Unknown vertical coordinate {release.z_coord!r}")
+        return release.z_coord, float(release.z), float(release.dz)
+    return "Pa", release.z_pa, release.dz_pa
+
+
 def sources_and_requests_block(plan, settings, timing):
     """One cuboid source and one integrated mixing-ratio field request per release.
 
@@ -341,13 +417,16 @@ def sources_and_requests_block(plan, settings, timing):
         "Top Hat, Plume Rise?, Temperature, Volume Flow Rate, Max Age, No Reflect?",
     ]
     for release in plan.itertuples():
+        z_coord, z, dz = source_vertical(release)
+        # dZ in metres for m agl sources (as the group's site template); in Pa otherwise.
+        dz_metres = "Yes" if z_coord == "m agl" else "No"
         # Backwards run: the source "starts" at the later time and "stops" at the earlier one.
         lines.append(
             f"{release.source_name}, {release.release_start.strftime(NAME_TIME_FORMAT)}, "
             f"{release.release_end.strftime(NAME_TIME_FORMAT)}, "
-            f"{release.particles_per_second}/sec, INERT-TRACER 1.0 g/s, Cuboid, Lat-Long, Pa, , , "
-            f"No, No, {release.lon!r}, {release.lat!r}, {release.z_pa!r}, {release.dlon!r}, "
-            f"{release.dlat!r}, {release.dz_pa!r}, 0.0, Yes, No, 0.0, 0.0, infinity, Yes"
+            f"{release.particles_per_second}/sec, INERT-TRACER 1.0 g/s, Cuboid, Lat-Long, "
+            f"{z_coord}, , , No, {dz_metres}, {release.lon!r}, {release.lat!r}, {z!r}, "
+            f"{release.dlon!r}, {release.dlat!r}, {dz!r}, 0.0, Yes, No, 0.0, 0.0, infinity, Yes"
         )
     lines += [
         "",
@@ -371,7 +450,8 @@ def met_declarations_block(settings):
 
     The demo file has placeholders %MetRestoreScript%, %MetDir% and %TopogDir%. The minimum
     boundary-layer depth (first number in each "NWP Met Module Instances" row) is set to
-    ``settings.min_bl_depth_m`` (legacy 40 m; demo 100 m).
+    ``settings.min_bl_depth_m`` (legacy 40 m; demo 100 m), and the maximum (second number) to
+    ``settings.max_bl_depth_m`` if given (otherwise the demo's 4,000 m is kept).
     """
     path = DEMO_UTILITIES / "MetDeclarations" / settings.met_version.declaration_file
     text = path.read_text()
@@ -392,9 +472,16 @@ def met_declarations_block(settings):
         if in_met_instances:
             if not line.strip():
                 in_met_instances = False
-            elif not line.startswith("Name,"):
+            elif line.startswith("Name,"):
+                # Fail loudly if the demo file's columns ever move.
+                header = [cell.strip() for cell in line.split(",")]
+                if header[1:3] != ["Min B L Depth", "Max B L Depth"]:
+                    raise ValueError(f"Unexpected met module columns in {path.name}: {header}")
+            else:
                 cells = line.split(",")
                 cells[1] = f" {settings.min_bl_depth_m}"
+                if settings.max_bl_depth_m is not None:
+                    cells[2] = f" {settings.max_bl_depth_m}"
                 lines[i] = ",".join(cells)
     return "\n".join(lines) + "\n"
 
@@ -428,7 +515,7 @@ def name_input_text(plan, settings):
         domain_block(settings, timing),
         species_block(),
         dispersion_options_block(settings),
-        particle_fate_block(settings),
+        particle_output_block(settings),
         sources_and_requests_block(plan, settings, timing),
         met_declarations_block(settings),
     ]

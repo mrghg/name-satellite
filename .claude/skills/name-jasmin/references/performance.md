@@ -39,3 +39,15 @@ Two runs differing only in seed: column-footprint totals differ ~3–4% per soun
 of a single sounding's footprint is "in different cells" on a 0.35° grid, falling to ~5% on 5.6°
 cells. More particles in the upper levels (30/s up to level 13, 10/s at 14) cut noise variance
 ~37% for ~10% more compute.
+
+## GLIDE reference-run settings (16 Nov 2026, Mk10, EUR box 30W-40E 32-72N, 0.25° grid)
+Memory probe (job 2301599): 24 hourly releases at Mace Head at 60/s (216,001 particles each,
+5,184,024 in all, **all alive at once** at the end of the releases), 24 h travel, deep convection
+`New`, 5-min sync, 8 threads on QoS high:
+- **MaxRSS 5.1 GB** with 5.2 M live particles (the 3-particle smoke test needed far less): roughly
+  0.25 kB per live particle on top of ~3.8 GB for met and grids. `Max # Particles` 6,000,000 and
+  `--mem=32G` are ample for a 14-day point-receptor block (240 live releases x 21,601 = 5.2 M);
+  a Lamont block (24 M live) should need ~10 GB.
+- **14.5 min wall, 109 CPU-min**: 1.24e8 particle-hours, ~0.9 CPU-min per million
+  particle-hours, with convection on. 8 threads ~94% efficient here.
+- Fate codes: 99.998% reached 24 h inside the box; 109 left (95 code 8, 14 code 24).

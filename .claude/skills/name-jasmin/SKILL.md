@@ -44,7 +44,10 @@ are installed; do not copy them into a repository.
 7. **`Random Seed = Fixed`** makes runs repeatable; `Random` gives a new sequence each run (no
    numeric seed is documented). The docs warn threaded runs may differ slightly; our 1/4/8-thread
    runs were bit-identical. Measure particle noise as Fixed vs Random (or two Random runs).
-8. **Check the NAME documentation** (below) before relying on memory for syntax: it is
+8. **Follow NAME's documented recommendations for physics options in new setups**, not old
+   templates. Deep convection in particular: NAME recommends `New` for global met, but our
+   satellite runs and the legacy and demo templates use `No` (`references/input-syntax.md`).
+9. **Check the NAME documentation** (below) before relying on memory for syntax: it is
    authoritative for input and output formats; our notes add what it doesn't cover.
 
 ## Where to look next
