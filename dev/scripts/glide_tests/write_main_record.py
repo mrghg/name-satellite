@@ -1,6 +1,6 @@
-"""Write the run record (spec §8) for the main block runs and the finished sensitivity runs.
+"""Write the run record (spec §8) for the main block runs and every other finished run.
 
-    uv run python dev/scripts/glide_tests/write_main_record.py MAIN_FOLDER SENSITIVITY_FOLDER
+    uv run python dev/scripts/glide_tests/write_main_record.py MAIN_FOLDER [OTHER_FOLDER ...]
 
 Reads the run folders and job ids from ``jobs.txt`` in each folder (lines "<run folder> <job>";
 runs that failed at start-up and were rerun appear under their ``_try2`` folder). Writes
@@ -51,8 +51,8 @@ def finished_runs(folder):
 
 
 if __name__ == "__main__":
-    main_folder, sensitivity_folder = Path(sys.argv[1]), Path(sys.argv[2])
-    runs = finished_runs(main_folder) + finished_runs(sensitivity_folder)
+    main_folder = Path(sys.argv[1])
+    runs = [run for folder in sys.argv[1:] for run in finished_runs(folder)]
     pressures = pd.concat(
         pd.read_csv(main_folder / f"SGP_NAM-{m}_surface_pressure" / "surface_pressure.csv")
         for m in ("Jan", "Jul")
@@ -64,6 +64,8 @@ if __name__ == "__main__":
         "under spec e934448; check 8 tolerance one unit in the last printed digit).",
         "check6": "Two identical sources in one Fixed run differ (job 2296902), so main uses "
         "Fixed (§9).",
+        "case_times": "Standard cases 3-5 (§9) use the release times of GLIDE PR 22 (17 Nov "
+        "2026): CBW-20 7 Jan 2019 02:00, LEF 13 Jul 2019 20:00, TAC 13 Jan 2019 15:00.",
     }
     record = build_record(runs, DEPARTURES, notes, surface_pressure_csv=csv)
     path = write_record(main_folder / "run_record_NAME_main.yaml", record)
