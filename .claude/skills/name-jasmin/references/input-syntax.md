@@ -83,6 +83,15 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   totals 13.929 and 13.924 m2 s/mol). So in a `Fixed` run, sources (and hourly releases) are not
   copies of each other.
 
+## Boundary-layer depth limits (18 Nov 2026, GLIDE task B14)
+
+The limits are the `Min B L Depth` and `Max B L Depth` columns of each row of the
+`NWP Met Module Instances` block (A01 Table 1.21); the met definition files carry no such
+limit. The NAME team's demo met declarations set their own values on every partition row, so
+an input file that copies that block takes whatever limits it writes there: check the block
+you copy. name-satellite's `met_declarations_block` writes 100.0, 4500.0 for the GLIDE
+reference runs (spec §7).
+
 ## Grids and field requests
 - `Horizontal Grids: Name, H-Coord, nX, nY, dX, dY, X Min, Y Min` — **X Min / Y Min are the
   centre of the first cell**, not its edge.

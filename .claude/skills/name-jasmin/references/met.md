@@ -59,3 +59,24 @@ instead shortened back-runs by hand near changeovers and stopped at Mk10.
 ## Memory
 The declarations use each met file's whole global domain. Peak memory is dominated by met and
 output grids, not particles: see performance.md (bounded domain ~4–5 GB; unbounded +5.6 GB).
+
+## How NAME uses the UM's time-mean surface fields (18 Nov 2026, met-only run, GLIDE task B14)
+
+Measured with a backwards met-only run on UMG_Mk10PT (7 Jan 18Z to 8 Jan 06Z 2019, two UM scalar
+grid points, output every 15 min; reference-run declarations, 100-4,500 m):
+
+- Heat flux and surface stress are not interpolated in time with Mk10 met (B01 "NWP Met
+  Definitions" describes the option of using the next value instead). Observed: `u-star` and
+  `Sensible Heat Flux` are constant over each (t_k, t_k+3h] and equal to the fields valid at
+  t_k+3h, i.e. the 3-h mean over that same interval. Snapshot fields (`Temperature (K)`,
+  `Boundary Layer Depth`) are linear in time between met times. At the run's final time (its
+  earliest, backwards) the next interval's value appeared.
+- `Sensible Heat Flux` output is positive up (the UM's 3/217 unchanged).
+- `u-star` = sqrt(|tau| / rho) to 5 digits, tau from the two stress fields interpolated to the
+  point, rho = NAME's `Density` at 0 m agl at the interval's end time.
+- `1 / Monin-Obukhov Length` = -k g H / (rho cp T u*^3) to 0.04% (k 0.4, g 9.80665, cp ~1005),
+  with T and rho the time-interpolated values at the moment, so it drifts slightly within an
+  interval. NAME does not read u* or L from the met files.
+- Quantity names in the input must be spelled as in B01, e.g. `1 / Monin-Obukhov Length` (with
+  spaces); `1/Monin-Obukhov Length` is a fatal "Quantity ... not recognised".
+- In a backwards run a temporal grid `nT, dT, T0` steps backwards from T0.
