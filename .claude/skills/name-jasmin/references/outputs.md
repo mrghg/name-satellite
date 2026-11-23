@@ -22,6 +22,22 @@ Readers: `~/code/name-satellite/src/name_satellite/name_output.py` (`read_fields
 - Match columns to releases by the source-name header row, never by column position.
 - Mixing ratio integrated over the window (ppm s) → footprint in (mol/mol)/(mol m⁻² s⁻¹) with a
   1 g/s source of molecular weight 1: field × 1e-6 × cell area (m²) / release duration (s).
+- **How air density enters `Mixing Ratio`** (test of 23 Nov 2026, job 6142203; Mk10, Mace Head
+  case-1 release, 24 h, 0–40 m layer; instantaneous `Air Concentration`, `Density`,
+  `Temperature (K)`, `Pressure (Pa)` and `Mixing Ratio` on 8 × 8 cells at all 301 sync times,
+  plus time-integrated requests):
+  - NAME divides the cell's air concentration by the air density **at the centre of the output
+    grid box** (documented: A01 output quantities; C03 §2.2), **at each sampling time, before
+    time integration**: the integrated mixing ratio equals Σ (C/ρ) Δt × 28.966 / M from the
+    instantaneous values to 4e-7, while (∫C dt) / mean ρ differs by 0.15–0.4%.
+  - The density is p / (287.05 T) with the actual temperature, to 1e-6: **no humidity term**,
+    so the "dry air" mixing ratio is in effect per mole of moist air. Molar mass of air 28.966.
+  - So: one density per output cell and sampling time, never per particle. Against a model that
+    weights each particle by its own 1/ρ, expect differences of a few percent in steep terrain
+    (density at the cell-centre ground height) and from the dry/moist-air definition (≈ e/p, up
+    to 1–2.5% near the surface in humid summer air).
+  - A `Density` request must have `Sync? = Yes`, or the run stops at once with a fatal error
+    saying so (also when time-integrated).
 - Output Format letters (B01; A01 Table 1.12): I = include grid indices, A = align columns,
   **Z = also write all-zero grid points** (default: omit them), 2 = legacy NAME II layout
   (deprecated). `Masking Threshold` can trim small values further.

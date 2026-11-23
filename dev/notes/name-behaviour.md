@@ -74,6 +74,11 @@ repository.
   "Pressure (Pa)" requested at 0 m agl on a `Locations:` set, one time grid per sounding: 46
   soundings of 1 Jan 2013 took 15 s on 1 thread (`surface_pressure.py`). Its surface pressures are
   those the main run reports at the same points and times.
+- `Mixing Ratio` output divides the air concentration by the air density at the centre of each
+  output grid box at each sampling time, before time integration, with density p / (287.05 T)
+  and no humidity term; density never enters per particle (test of 23 Nov 2026, job 6142203;
+  details in the name-jasmin skill, `references/outputs.md`). A `Density` request needs
+  `Sync? = Yes`.
 - NetCDF field output needs the NetCDF executable (`nameiii_eccodes_NetCDF_64bit_par.exe` in
   8.7.1); Mk12 met definitions exist only in 8.7.1.
 
