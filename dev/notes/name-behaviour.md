@@ -51,6 +51,11 @@ repository.
   Lesson: test a new run layout with a 1-hour maximum travel time on the debug queue first.
 - Release-point met (`release_met.py`): at most 200 time grids, 12 arrays, 86 values per array and
   5 location sets per run; output groups default to 100 (`Max # Field Output Groups`).
+- Horizontal grids: at most 70 per run in stock 8.7.1 ("FATAL ERROR: too many horizontal grids");
+  the UM global met definitions use about 40 (with UMG_Mk6PT, 25 extra grids worked and 35 did
+  not; debug runs, 24 Nov 2026). The ACRG-patched build allows 1,000 (raised 24 Nov 2026 for the
+  future-method grids). Rebuilt with that change, it reproduced the previous build's output except
+  one fields value in its 7th significant figure (two runs of the previous build were identical).
 - Threads: NAME will not use more threads than OpenMP offers, so the job's CPUs, `OMP_NUM_THREADS`
   and the input file's `Threads` must be equal (`lotus.py`).
 
@@ -87,6 +92,12 @@ repository.
 The particle loop scales almost linearly; the rest (met reading, output) barely changes. With
 `Random Seed = Fixed`, fields and fate files are bit-identical for 1, 4 and 8 threads. NAME's timer
 summary is in `<input>Timing.txt`; `sacct` TotalCPU shows 0 under mpirun.
+
+## Timers and met reading (24 Nov 2026)
+With on-demand met (the default "new threaded method"), the met-read timers record no calls: the
+timer summary covered 12% of a 240 h unbounded run (particle loop 191 s of 1,834 s). Measure met
+reading from outside the process (`/proc` CPU per thread and bytes read; `future/sampler.py` on
+branch `future-method`).
 
 ## Runs that look successful but are not
 NAME can exit 0 while writing errors to `<input>Error.txt` (e.g. particles lost when two jobs restored

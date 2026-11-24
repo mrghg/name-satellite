@@ -83,6 +83,12 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   request. 2,720 columns in one group made the run stop **at the end** (after 8 h 21 min) with
   "FATAL ERROR: too long an output line required for output group". 2,000 columns per group works:
   split requests into output groups of at most 2,000.
+- **At most 70 horizontal grids per run** (stock 8.7.1, fixed when NAME is compiled; not in the
+  docs): more stop the run at once with "FATAL ERROR: too many horizontal grids". The grids of the
+  UM global met definitions count too and take about 40: with UMG_Mk6PT, 25 grids of our own
+  worked and 35 failed (debug runs, 24 Nov 2026). Several small grids per run (e.g. one per release
+  group) therefore need a build with a higher limit: the ACRG-patched build allows 1,000 (from
+  24 Nov 2026; SKILL.md, key paths).
 - Point output on a `Locations:` set works (unstructured horizontal grid), as does a vertical
   `Z-Array`. Release-point met in one run: at most 200 time grids, 12 arrays, 86 values per array
   and 5 location sets per run (we hit these; one group per ~200 soundings).
@@ -100,6 +106,12 @@ Writes `Particles_C1.txt`: one record per particle when it stops. `Met? = Yes` a
 `OpenMP Options: Use OpenMP?, Threads, Output Group Threads` — `Yes, 4, 1` (further columns:
 Particle Threads, Particle Update Threads; A01 §1.2.7.7). Threads must equal the job's CPUs and
 `OMP_NUM_THREADS`; the docs also recommend `OMP_STACKSIZE=32m`.
+
+## Physics options tried together (24 Nov 2026, patched 8.7.1, Mk6, back-runs)
+No side boundaries, `Deep Convection? = New`, and the near-source turbulence scheme (`Velocity
+Memory Time` = `Inhomogeneous Time` = `01:00`, `Skew Time` = `00:00`, `Max # Full Particles` =
+1,000,000) in back-runs of 160–368 cuboid sources: accepted, empty error file. With the
+near-source scheme off, set `Max # Full Particles` to 2 (A01 §1.5.6).
 
 ## Messages
 A `Message Controls` block can make chosen warnings fatal (e.g. "No flow for particle/puff" =

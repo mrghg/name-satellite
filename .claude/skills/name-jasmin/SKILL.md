@@ -82,7 +82,7 @@ section), never copy passages into anything shared.
 |---|---|
 | NAME group workspace (executables, UM met archive, demo scripts) | `/gws/ssde/j25a/name` (`~/name`; needs Unix group `gws_name`) |
 | NAME 8.7.1 | `/gws/ssde/j25a/name/code/NAME-8.7.1/Executables_Linux/nameiii_64bit_par.exe` |
-| ACRG-patched 8.7.1 (fate records carry particle index and fate code) | `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid` (group `gws_name` only) |
+| ACRG-patched 8.7.1 (fate records carry particle index and fate code; allows 1,000 horizontal grids per run, stock 70) | `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid` (group `gws_name` only; its local git history records each change, previous executables kept beside the current one) |
 | NAME team's 8.7.1 demo scripts and met declarations | `/gws/ssde/j25a/name/examples/DemoScripts_v8_7_1/` |
 | UM global met archive | `/gws/ssde/j25a/name/met_archive/Global/UMG_Mk*PT/` |
 | UM topography | `/gws/ssde/j25a/name/data/UMTopogData` |
