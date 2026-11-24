@@ -90,6 +90,58 @@ becomes 10–12.5° wide, at most 1.6× the cells). A 2.5° cell is then the nat
 every coarse cell is either wholly inside a finer box or wholly outside it. (The first tests'
 fine boxes were on 0.1° lines only.)
 
+## Storing the output (netCDF)
+
+Each sounding's grids are cut-outs of fixed **global** grids (0.1°, 0.5°, 2.5°, origin −180°,
+−90°), so a file needs no per-sounding coordinates:
+
+* `srr_fine (sounding, y, x)` and `srr_medium (sounding, y, x)`: fixed-size blocks, the largest a
+  box snapped to the 2.5° lines can be (0.1°: 125 × 125; 0.5°: 105 × 105), zero-padded;
+* `fine_offset`, `medium_offset (sounding, 2)`: the block's first cell in the global 0.1° / 0.5°
+  grid (integers);
+* `srr_coarse (sounding, 72, 144)`: the global 2.5° grid;
+* end positions for the boundary term: a 3D histogram per sounding (bins to be chosen, below).
+
+Written as today's file (float32, BitRound 10 bits, zlib 4 + shuffle, one sounding per chunk).
+Measured on the three test groups (kB per sounding; the 0.5° blocks cut from the test's fixed
+regional grid, so slightly under-counted):
+
+| Array | 240 h | 720 h |
+|---|---|---|
+| 0.1° block (±5°) | 9 | 13 |
+| 0.5° block (±25°) | 9 | 20 |
+| 2.5° global | 6 | 17 |
+| End positions, 2.5° × 1 km (20 × 72 × 144) | 28 | 67 |
+| End positions, 5° × 2 km (10 × 36 × 72) | 10 | 24 |
+
+So 30–50 kB per sounding at 240 h, against ~58 kB in today's processed file (2.7 MB for 46
+soundings, curtains included): ~40–65 MB per GOSAT-BRAZIL month, ~0.3–0.5 GB per 10,000
+soundings. Only 6–20% of cells are non-zero at 240 h (30–70% at 720 h), which is what keeps the
+files small. The end-position bins are the main storage choice. Dense satellites (TROPOMI-like,
+10⁵–10⁶ soundings a day) would need soundings aggregated before release, whatever the layout.
+
+### Why three levels, not two
+
+Measured on the three test groups at 240 h: 10–17% of each column footprint lies within 5° of
+the release, 24–34% in the 5–25° ring (~500–2,800 km) and 55–61% beyond 25°. With only 0.1° and
+2.5° levels the ring would exist only at 2.5° (cells ~275 km): spreading each 2.5° cell's value
+evenly puts 20–25% of the ring's footprint in the wrong 0.5° cell (Amazon, Argentina; 61% for
+the narrow NE-coast plume). These are upper bounds, since part of the 0.5° detail is particle
+noise (not yet measured at 0.5°).
+
+| Layout | Footprint storage per sounding (240 h) | Resolution 500–2,800 km away |
+|---|---|---|
+| 0.1° + 2.5° | ~15 kB | 2.5° |
+| 0.1° + 0.5° + 2.5° | ~24 kB | 0.5° |
+| 0.1° out to ±25° + 2.5° | ~100+ kB (estimate) | 0.1°, mostly particle noise that far out |
+
+With ×5 nesting and each box ~5× wider, every level has about the same number of cells
+(10,000–16,000), so a level costs one level's worth of storage, not its area. The 0.5° level costs
+~9 kB per sounding (about a fifth of the total with end positions) and keeps the choice open: it
+can be aggregated to 1° or 2.5° later, finer detail cannot be recovered without new runs. Widening
+the 0.1° box instead costs 25× the cells and NAME memory (~80 MB per release group). Decision:
+three levels, unless the inversion will never solve below 2.5° at 500–2,800 km.
+
 ## Batching releases
 
 If per-group fine grids are cheap, runs should be batched by **time**, not space: the shared cost
