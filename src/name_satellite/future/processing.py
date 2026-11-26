@@ -384,22 +384,6 @@ def write_file(ds, path):
     return path
 
 
-def sounding_footprint(ds, sounding_id, level):
-    """One sounding's footprint on one level as a DataArray with lat/lon coordinates.
-
-    ``level``: "fine", "medium" or "coarse". The fine and medium blocks are cut to their box.
-    This is how an inversion places a sounding's blocks on the global grids.
-    """
-    one = ds.sel(sounding_id=sounding_id)
-    if level == "coarse":
-        return one["srr_coarse"].rename(coarse_lat="lat", coarse_lon="lon")
-    (j0, i0), (ny, nx) = one[f"{level}_offset"].values, one[f"{level}_shape"].values
-    block = one[f"srr_{level}"].values[:ny, :nx]
-    lat = ds[f"{level}_lat_global"].values[j0 : j0 + ny]
-    lon = ds[f"{level}_lon_global"].values[i0 : i0 + nx]
-    return xr.DataArray(block, dims=("lat", "lon"), coords={"lat": lat, "lon": lon})
-
-
 if __name__ == "__main__":
     arguments = [a for a in sys.argv[1:] if not a.startswith("--")]
     chosen = [a.removeprefix("--days=") for a in sys.argv[1:] if a.startswith("--days=")]

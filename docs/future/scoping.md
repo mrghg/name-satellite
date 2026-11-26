@@ -74,7 +74,7 @@ the flux cells it contains:
    footprint is assumed smooth within a 0.5° cell; this only happens ≳450 km from the
    sounding, while everything within 300 km is always on its fine grid);
 3. a 0.5° flux cell inside the sounding's 0.5° grid: its 0.5° footprint (equal to the sum of its
-   0.1° cells, to ~0.1%);
+   0.1° cells, to ~0.2% for 90% of soundings);
 4. a 0.5° flux cell outside it: the sounding's 2.5° value, spread over the 25 cells (≳2,500 km
    from the sounding);
 5. a 2.5° flux cell: its 2.5° footprint.
@@ -282,7 +282,8 @@ a real scheme aligns every level.
 * F7. Tile scheme (sizes per level) and the file format the inversion would read.
 * F10. Size of the release-centred 0.5° grid (±25° proposed): measure memory, run time and how
   much of a 10-day footprint falls outside it; compare with one shared global 0.5° grid.
-* F8. Why nested grids differ by ~0.1% (mixing-ratio conversion per cell?), and whether to
-  output a quantity that adds exactly.
+* F8. Why nested grids differ (0.1° vs 0.5°: ≲0.2% for 90% of soundings, at most 0.7%; 0.5° vs
+  2.5°: ≲1.4% for 90%, up to 9.4% over the Andes, January 2013; mixing-ratio conversion per
+  cell over steep terrain?), and whether to output a quantity that adds exactly.
 * F9. Boundary term: sample a global CH4 field (e.g. CAMS) at the end positions and compare
   with today's curtain term for the same soundings.

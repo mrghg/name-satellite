@@ -17,8 +17,11 @@ Three output levels, each a cut-out of a **global** grid with origin (−180°, 
 A block's cell `[j, i]` is the global cell `[offset[0] + j, offset[1] + i]` of its level, for
 `j < shape[0]`, `i < shape[1]`; the rest of the block is zero padding, **not** zero sensitivity.
 Because the boxes are snapped to 2.5° lines, every coarse cell is either wholly inside a finer box
-or wholly outside it, and finer cells sum into coarser ones (to ~0.1%: NAME converts to mixing
-ratio cell by cell).
+or wholly outside it, and finer cells sum into coarser ones, but only approximately, as NAME
+converts to mixing ratio cell by cell. In January 2013 (1,269 soundings), a 0.1° box summed agreed
+with the 0.5° cells it fills to within 0.2% for 90% of soundings (at most 0.7%); a 0.5° box
+summed agreed with the 2.5° cells it fills to within about 1.4% for 90% (at most 9.4%, for
+soundings over the Andes). See the check in `notebooks/future_footprints.ipynb`.
 
 ## Variables (dimension `sounding_id` first)
 
@@ -46,9 +49,10 @@ the level's footprint (one per sounding, D26). Using them:
 - **Boundary term**: Σ over `end_positions` bins of the fraction × the CH₄ mole fraction of a global
   3D field in that bin at `end_time` (top exits: at the 20 km top, `top_exit_mean_age` hours before
   the release).
-- `name_satellite.future.processing.sounding_footprint(ds, sounding_id, level)` returns one
-  sounding's footprint on one level with its latitude and longitude, as an example of placing the
-  blocks.
+- **Reading the file**: `name_satellite.future.footprint_file` opens it (`open_footprints`), places
+  one sounding's blocks on the global grids (`sounding_footprint`), sums soundings on any level's
+  global grid taking the finest level each has (`finest_footprint`), and tabulates per-sounding
+  summaries (`sounding_table`). `notebooks/future_footprints.ipynb` plots a month file.
 
 Storage: float32 rounded to 10 significant bits (BitRound, unbiased, 0.05% relative precision),
 zlib 4 + shuffle, one sounding per chunk.
