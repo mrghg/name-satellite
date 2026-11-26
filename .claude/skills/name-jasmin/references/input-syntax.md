@@ -113,6 +113,13 @@ Memory Time` = `Inhomogeneous Time` = `01:00`, `Skew Time` = `00:00`, `Max # Ful
 1,000,000) in back-runs of 160–368 cuboid sources: accepted, empty error file. With the
 near-source scheme off, set `Max # Full Particles` to 2 (A01 §1.5.6).
 
+**`Max # Full Particles` limits every particle the run releases**, not just those still within
+the near-source time. With 1,000,000 and a 1 h near-source time, 10-day runs releasing 1.36 and
+1.44 M particles stopped after 7–9 min with "Full particle creation stopped because array is
+full", although at most 0.37 M were ever within an hour of release; runs releasing up to 0.97 M
+finished (Jan 2013). Set it equal to `Max # Particles` (we use 7,000,000; peak memory stayed
+9.5–10.3 GB).
+
 ## Messages
 A `Message Controls` block can make chosen warnings fatal (e.g. "No flow for particle/puff" =
 lost particles) or stop after N messages (B01; A01 §1.2.7.8). Untested whether that changes the
