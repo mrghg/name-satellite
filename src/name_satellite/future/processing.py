@@ -103,7 +103,9 @@ def read_run(day_folder, allow_test=False):
     obs = obs.isel(sounding_id=[i for i, s in enumerate(ids) if s not in dropped])
     boxes = pd.read_csv(day_folder / "grids.csv", dtype={"release_group": str})
     fields = {}
-    for grid in [*boxes["fine_grid"], *boxes["medium_grid"], "HGridC"]:
+    if "coarse_grid" not in boxes:  # runs set up before the coarse grid was split: one copy
+        boxes["coarse_grid"] = "HGridC"
+    for grid in [*boxes["fine_grid"], *boxes["medium_grid"], *dict.fromkeys(boxes["coarse_grid"])]:
         files = list((day_folder / "output").glob(f"Fields_{grid}_C1_T1_*.txt"))
         if len(files) != 1:
             raise ValueError(f"{day_folder}: expected one fields file for {grid}, found {files}")
@@ -231,7 +233,7 @@ def process_day(day_folder, allow_test=False):
         per_group[row["release_group"]] = {
             "fine": level_footprints(fields[row["fine_grid"]], sources, release_seconds),
             "medium": level_footprints(fields[row["medium_grid"]], sources, release_seconds),
-            "coarse": level_footprints(fields["HGridC"], sources, release_seconds),
+            "coarse": level_footprints(fields[row["coarse_grid"]], sources, release_seconds),
             "ends": ends,
             "fine_box": fine_box,
             "medium_box": medium_box,

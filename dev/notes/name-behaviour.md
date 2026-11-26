@@ -68,6 +68,10 @@ repository.
   "Full particle creation stopped because array is full" (at most 0.37 M were within an hour of
   release); runs releasing up to 0.97 M finished (10-day runs, Jan 2013). `future.setup` sets it
   equal to `Max # Particles`.
+- Field requests sharing one horizontal grid (and the same output settings): 944 per run worked;
+  1,520 stopped the run within minutes with a fatal error saying a field-request limit "is not
+  large enough" (3-day batch, Jan 2013). `future.setup` repeats the global 2.5° grid under several
+  names, at most 500 releases each.
 
 ## Output formats
 - Output Format letters: I = include grid indices, A = align columns, Z = also write all-zero grid

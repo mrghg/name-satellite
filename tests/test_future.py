@@ -98,3 +98,15 @@ def test_implausible_surface_pressure_flags_ratios_outside_the_limits():
 
     table = pd.DataFrame({"ratio": [0.865, 0.95, 1.0, 1.09, 1.15]})
     assert implausible_surface_pressure(table).tolist() == [True, False, False, False, True]
+
+
+def test_coarse_grid_copies_hold_whole_groups_and_at_most_the_limit():
+    from name_satellite.future.setup import MAX_RELEASES_PER_COARSE_GRID, group_boxes
+
+    groups = [f"G{g}" for g in range(95) for _ in range(16)]  # 95 groups of 16 releases
+    plan = pd.DataFrame({"release_group": groups, "lon": -60.0, "lat": -10.0})
+    boxes = group_boxes(plan)
+    per_grid = boxes.groupby("coarse_grid").size() * 16
+    assert (per_grid <= MAX_RELEASES_PER_COARSE_GRID).all()
+    assert per_grid.sum() == len(plan)
+    assert list(dict.fromkeys(boxes["coarse_grid"])) == ["HGridC1", "HGridC2", "HGridC3", "HGridC4"]

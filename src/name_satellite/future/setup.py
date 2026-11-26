@@ -116,6 +116,10 @@ MAX_PARTICLES = 7_000_000
 MAX_FULL_PARTICLES = MAX_PARTICLES  # see the module docstring
 MAX_FIELD_REQUIREMENTS = 20_000
 MAX_FIELD_OUTPUT_GROUPS = 1000
+# Releases per copy of the global coarse grid. NAME stopped at once with a fatal error (a field
+# request limit "is not large enough") with 1,520 releases' requests on one grid (3-day batch) but
+# ran 944; so the global grid is repeated (HGridC1, HGridC2, ...), each with at most this many.
+MAX_RELEASES_PER_COARSE_GRID = 500
 SAMPLER = REPO / "src" / "name_satellite" / "future" / "sampler.py"
 
 # Release groups share releases within a 0.1° cell of the global grid (D20, with this grid).
@@ -195,16 +199,26 @@ def run_settings(site, run_folder, first_day, last_day, options):
 def group_boxes(plan):
     """One row per release group: its fine and medium boxes (degrees) and NAME grid names.
 
-    Groups are numbered 1, 2, ... in plan order (first appearance).
+    Groups are numbered 1, 2, ... in plan order (first appearance). Each group's releases go on
+    one copy of the global coarse grid (``coarse_grid``: HGridC1, HGridC2, ...), filled in order
+    with at most ``MAX_RELEASES_PER_COARSE_GRID`` releases each.
     """
     rows = []
+    coarse_number, on_coarse = 1, 0
     for number, group in enumerate(dict.fromkeys(plan["release_group"]), 1):
-        first = plan[plan["release_group"] == group].iloc[0]
+        releases = plan[plan["release_group"] == group]
+        if len(releases) > MAX_RELEASES_PER_COARSE_GRID:
+            raise ValueError(f"Release group {group} has more releases than a coarse grid holds")
+        if on_coarse + len(releases) > MAX_RELEASES_PER_COARSE_GRID:
+            coarse_number, on_coarse = coarse_number + 1, 0
+        on_coarse += len(releases)
+        first = releases.iloc[0]
         fine = snapped_box(first["lon"], first["lat"], FINE.half_width_deg)
         medium = snapped_box(first["lon"], first["lat"], MEDIUM.half_width_deg)
         rows.append(
             {"release_group": group, "group_number": number, "fine_grid": f"HGridF{number}",
-             "medium_grid": f"HGridM{number}", **{f"fine_{k}": v for k, v in vars(fine).items()},
+             "medium_grid": f"HGridM{number}", "coarse_grid": f"HGridC{coarse_number}",
+             **{f"fine_{k}": v for k, v in vars(fine).items()},
              **{f"medium_{k}": v for k, v in vars(medium).items()}}
         )  # fmt: skip
     return pd.DataFrame(rows)
@@ -230,7 +244,8 @@ def grids_block(boxes, settings, timing):
         lines.append(
             name_grid_line(row.medium_grid, box_of(row._asdict(), "medium"), MEDIUM.cell_deg)
         )
-    lines.append(name_grid_line("HGridC", global_box(), COARSE.cell_deg))
+    for grid in dict.fromkeys(boxes["coarse_grid"]):
+        lines.append(name_grid_line(grid, global_box(), COARSE.cell_deg))
     standard = name_input.grids_block(settings, timing)
     return "\n".join(lines) + "\n\n" + standard[standard.index("Vertical Grids:") :]
 
@@ -283,7 +298,7 @@ def sources_and_requests_block(plan, boxes, settings, timing):
     for release in plan.itertuples():
         number = release.source_name.removeprefix("SourceID_")
         group = by_group.loc[release.release_group]
-        for grid in (group["fine_grid"], group["medium_grid"], "HGridC"):
+        for grid in (group["fine_grid"], group["medium_grid"], group["coarse_grid"]):
             lines.append(
                 f"Req_{grid}_{number}, Mixing Ratio, INERT-TRACER, {release.source_name}, {grid}, "
                 f"ZGrid1, TGridEndOfRun, No, Int, {timing['window_hours']}:00, {n_steps}, No, D, "
