@@ -48,7 +48,13 @@ repository.
     through that edge (`processing.classify_fates`).
 
 ## Limits met in our runs
-- Footprint field requests: at most 3,000 per output time, so at most 3,000 sources per run.
+- Footprint field requests: **at most 3,000 per run**, counted over all requests that differ only
+  in their grids. Tested 26 Nov 2026 (1-hour runs, patched 8.7.1,
+  `dev/scripts/name_tests/field_request_limit.py` on `future-method`): 3,000 ran without error
+  (until the 30-min debug limit); 3,001 stopped within ~4 min with a fatal error saying a
+  field-request limit "is not large enough". Spreading the requests over several identical
+  horizontal grids, output groups or time grids does not help (4,560 failed each way). One
+  request per source per grid: e.g. three grids per source allow 1,000 sources.
 - Fields output lines: a fields file with 2,720 field columns made the run stop at the END with
   "FATAL ERROR: too long an output line required for output group" (after 8 h 21 min, job
   66323622); 2,000 columns per file works. `name_input` writes groups of at most 2,000.
