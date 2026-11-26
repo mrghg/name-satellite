@@ -81,7 +81,7 @@ def test_dispersion_options_follow_name_rules():
 
     text = dispersion_options_block(S, Options())
     values = [v.strip() for v in text.splitlines()[2].split(",")]
-    assert values[1] == "1000000"
+    assert values[1] == "7000000"
     assert values[2] == "01:00"
     assert values[4] == "01:00"
     assert values[10] == "New"
@@ -91,3 +91,10 @@ def test_dispersion_options_follow_name_rules():
         dispersion_options_block(S, Options(near_source_hours=0.5, skew_hours=1.0))
     assert hhmm(1.5) == "01:30"
     assert hhmm(240) == "240:00"
+
+
+def test_implausible_surface_pressure_flags_ratios_outside_the_limits():
+    from name_satellite.surface_pressure import implausible_surface_pressure
+
+    table = pd.DataFrame({"ratio": [0.865, 0.95, 1.0, 1.09, 1.15]})
+    assert implausible_surface_pressure(table).tolist() == [True, False, False, False, True]

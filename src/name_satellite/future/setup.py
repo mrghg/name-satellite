@@ -20,11 +20,16 @@ Steps 1-7 are those of the main workflow (``prepare``): soundings, the model sur
   - deep convection ``New``;
   - the near-source turbulence scheme (velocity memory, height-dependent turbulence profiles) for
     each particle's first ``NEAR_SOURCE_HOURS`` of travel, then the long-range scheme. Skewed
-    turbulence off (``SKEW_HOURS`` = 0). ``MAX_FULL_PARTICLES`` must cover every particle within
-    that time of release; NAME stops if it does not;
+    turbulence off (``SKEW_HOURS`` = 0). ``MAX_FULL_PARTICLES`` must cover every particle the run
+    releases, not just those still within that time of release: NAME stopped ("array is full") on
+    days releasing 1.36-1.44 M particles with a limit of 1 M, although at most 0.37 M were within an
+    hour of release (Jan 2013), so it is set to ``MAX_PARTICLES``;
   - boundary-layer depth limits as the NAME team's met declarations (minimum 100 m; the main
     workflow keeps legacy's 40 m).
 * No release-point met requests (not used by ``future.processing``).
+* Soundings whose model surface pressure is outside 0.9-1.1 × the retrieval's (steep terrain: the
+  model ground more than ~1 km off) are dropped and listed in ``dropped_soundings.csv`` (D27)
+  instead of stopping the day, as the main workflow does.
 
 Profiling: every NAME job runs ``future.sampler`` beside NAME (CPU per thread, bytes read and
 written, memory, met progress every 5 s, in ``profile.csv``), and NAME's timer summary is on.
@@ -93,6 +98,7 @@ from name_satellite.releases import (
     scale_to_model_surface,
 )
 from name_satellite.surface_pressure import (
+    implausible_surface_pressure,
     read_surface_pressure,
     surface_pressure_input_text,
     surface_pressure_settings,
@@ -107,7 +113,7 @@ SKEW_HOURS = 0.0
 DEEP_CONVECTION = "New"
 MIN_BL_DEPTH_M = 100.0  # the NAME team's met declarations
 MAX_PARTICLES = 7_000_000
-MAX_FULL_PARTICLES = 1_000_000
+MAX_FULL_PARTICLES = MAX_PARTICLES  # see the module docstring
 MAX_FIELD_REQUIREMENTS = 20_000
 MAX_FIELD_OUTPUT_GROUPS = 1000
 SAMPLER = REPO / "src" / "name_satellite" / "future" / "sampler.py"
@@ -354,9 +360,18 @@ def final_plan(day_folder, site, product, write_tables=True):
     folder = day_folder / "surface_pressure"
     soundings = pd.read_csv(folder / "soundings.csv", parse_dates=["time"],
                             dtype={"sounding_id": str})  # fmt: skip
-    surface = surface_pressure_table(obs, read_surface_pressure(folder / "output", soundings))
+    surface = surface_pressure_table(obs, read_surface_pressure(folder / "output", soundings),
+                                     check_ratio=False)  # fmt: skip
+    # Soundings whose model ground is more than ~10% off the retrieval's surface pressure (steep
+    # terrain) are dropped and listed (D27); future.processing skips exactly those.
+    bad = implausible_surface_pressure(surface).to_numpy()
     if write_tables:
         surface.to_csv(day_folder / "surface_pressure.csv", index=False)
+        surface[bad].to_csv(day_folder / "dropped_soundings.csv", index=False)
+    if bad.any():
+        print(f"{day_folder}: dropped {bad.sum()} soundings (implausible surface pressure, D27)")
+    obs = obs.isel(sounding_id=np.flatnonzero(~bad))
+    surface = surface[~bad].reset_index(drop=True)
     levels = obs["pressure_levels"].values
     scaled = np.array([scale_to_model_surface(levels[p], surface["model_hpa"].iloc[p])
                        for p in range(len(surface))])  # fmt: skip

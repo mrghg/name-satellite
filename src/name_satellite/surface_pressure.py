@@ -159,12 +159,14 @@ def read_surface_pressure(output_folder, soundings):
     return table
 
 
-def surface_pressure_table(obs, model):
+def surface_pressure_table(obs, model, check_ratio=True):
     """Retrieval and model surface pressure per sounding, matched by sounding ID.
 
     Args:
         obs: observation Dataset (``observations.to_obs``: dim ``sounding_id``).
         model: ``read_surface_pressure`` output, with ``sounding_id``.
+        check_ratio: raise if a ratio is outside PLAUSIBLE_RATIO. The future method passes False
+            and drops those soundings instead (``implausible_surface_pressure``).
 
     Returns:
         DataFrame in the order of ``obs``: ``sounding_id``, ``retrieval_hpa`` (level 0),
@@ -187,8 +189,14 @@ def surface_pressure_table(obs, model):
     )
     table["ratio"] = table["model_hpa"] / table["retrieval_hpa"]
     table["domain_top_hpa"] = model.loc[ids, "domain_top_pressure_pa"].to_numpy() / 100.0
-    low, high = PLAUSIBLE_RATIO
-    bad = table[(table["ratio"] < low) | (table["ratio"] > high)]
-    if not bad.empty:
+    bad = table[implausible_surface_pressure(table)]
+    if check_ratio and not bad.empty:
         raise ValueError(f"Implausible model/retrieval surface pressure:\n{bad.to_string()}")
     return table
+
+
+def implausible_surface_pressure(table):
+    """Boolean Series: rows of ``surface_pressure_table`` whose model / retrieval surface
+    pressure ratio lies outside PLAUSIBLE_RATIO (a ground more than ~1 km off: steep terrain)."""
+    low, high = PLAUSIBLE_RATIO
+    return (table["ratio"] < low) | (table["ratio"] > high)

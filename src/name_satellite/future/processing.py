@@ -92,6 +92,15 @@ def read_run(day_folder, allow_test=False):
     plan = pd.read_csv(day_folder / "release_plan.csv", dtype={"release_group": str},
                        parse_dates=["release_start", "release_end"])  # fmt: skip
     members = pd.read_csv(day_folder / "release_groups.csv", dtype=str)
+    # Soundings dropped by future.setup (D27) have no releases: skip exactly those.
+    dropped_file = day_folder / "dropped_soundings.csv"
+    dropped = set()
+    if dropped_file.exists():
+        dropped = set(pd.read_csv(dropped_file, dtype={"sounding_id": str})["sounding_id"])
+    ids = [str(s) for s in obs["sounding_id"].values]
+    if set(ids) - dropped != set(members["sounding_id"]):
+        raise ValueError(f"{day_folder}: release groups don't match the soundings not dropped")
+    obs = obs.isel(sounding_id=[i for i, s in enumerate(ids) if s not in dropped])
     boxes = pd.read_csv(day_folder / "grids.csv", dtype={"release_group": str})
     fields = {}
     for grid in [*boxes["fine_grid"], *boxes["medium_grid"], "HGridC"]:

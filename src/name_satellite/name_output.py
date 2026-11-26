@@ -380,18 +380,24 @@ def drop_repeated_fate_records(particles, max_gap_seconds=360.0):
         ``particles`` with one row per (source_number, particle_index), in the original order.
 
     Raises:
-        ValueError if the file has no particle index, or a particle's records differ in fate
-        code or are further apart than ``max_gap_seconds`` (not the known X20 pattern).
+        ValueError if the file has no particle index, or a particle's records are further apart
+        than ``max_gap_seconds``, or the later record's fate code is neither the first's nor the
+        first's plus 16 (not the known X20 pattern).
     """
     if "particle_index" not in particles:
         raise ValueError("Needs the patched NAME's particle index (met.PATCHED_NAME_DIR)")
     key = ["source_number", "particle_index"]
     repeated = particles[particles.duplicated(key, keep=False)]
     if len(repeated):
-        groups = repeated.groupby(key)
+        groups = repeated.sort_values("age_hours", kind="stable").groupby(key)
         gap_seconds = groups["age_hours"].agg(lambda a: (a.max() - a.min()) * 3600.0)
-        codes = groups["fate_code"].nunique()
-        if (gap_seconds > max_gap_seconds).any() or (codes > 1).any():
+        # The two records share a fate code, except that a particle leaving within one step of the
+        # maximum travel time can get a second record at that time with the "maximum travel time"
+        # bit (16) added (8 -> 24; seen once in 22 days of 10-day runs, Jan 2013).
+        first_code = groups["fate_code"].first()
+        last_code = groups["fate_code"].last()
+        codes_ok = (last_code == first_code) | (last_code == (first_code | 16))
+        if (gap_seconds > max_gap_seconds).any() or (~codes_ok).any():
             raise ValueError("Repeated fate records that don't match the known X20 pattern")
     first = particles.sort_values("age_hours", kind="stable").drop_duplicates(key, keep="first")
     return particles.loc[sorted(first.index)]

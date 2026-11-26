@@ -39,6 +39,10 @@ repository.
     record is the exit. `drop_repeated_fate_records` allows gaps up to the sync time.
   - Fate codes are bit flags: one particle in that run has code 24 (= 8 + 16), at exactly the
     maximum travel time and beyond the east edge: it left on its last step. Treated as an exit.
+  - 10-day runs, Jan 2013 (22 days, 0.15-1.05 M particles each, patched build): 0-38 particles
+    per day written twice, 60-300 s apart (one gap per day). Once, a particle that left through the
+    top 45 s before the maximum travel time had a second record at exactly that time with code 24
+    (8 + 16); its first record is the exit. `drop_repeated_fate_records` accepts that pair too.
   - In the same run 31 "left the domain" records lie exactly on the east edge as printed (positions
     have 5 decimal places), so beyond it by less than the printed precision. Counted as exits
     through that edge (`processing.classify_fates`).
@@ -53,6 +57,12 @@ repository.
   5 location sets per run; output groups default to 100 (`Max # Field Output Groups`).
 - Threads: NAME will not use more threads than OpenMP offers, so the job's CPUs, `OMP_NUM_THREADS`
   and the input file's `Threads` must be equal (`lotus.py`).
+- `Max # Full Particles` (particles under the near-source turbulence scheme) behaves as a limit on
+  all the particles a run releases, not on those still within the near-source time: with a limit
+  of 1,000,000 and a 1 h near-source time, runs releasing 1.36 and 1.44 M particles stopped with
+  "Full particle creation stopped because array is full" (at most 0.37 M were within an hour of
+  release); runs releasing up to 0.97 M finished (10-day runs, Jan 2013). `future.setup` sets it
+  equal to `Max # Particles`.
 
 ## Output formats
 - Output Format letters: I = indices, A = align, Z = zero lines suppressed, 2 = NAME II text.
