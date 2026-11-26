@@ -60,7 +60,11 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   output, don't compute them.
 - A rate on an instantaneous source (start = stop) releases nothing, and a zero maximum travel
   time makes NAME ignore the source (B03). Source `Max Age` defaults to infinity.
-- At most 3,000 sources per run for footprint field requests (one request per source per output time).
+- **At most 3,000 field requests per run** (requests differing only in their grids). 3,000 ran;
+  3,001 stopped within minutes with a fatal error saying a field-request limit "is not large
+  enough". Spreading them over identical copies of a horizontal grid, separate output groups or a
+  second time grid does not get round it. One request per source per grid, so with three output
+  grids per source a run holds at most 1,000 sources. Check the count before submitting.
 
 ## Grids and field requests
 - `Horizontal Grids: Name, H-Coord, nX, nY, dX, dY, X Min, Y Min` — **X Min / Y Min are the
