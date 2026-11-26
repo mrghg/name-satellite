@@ -98,6 +98,7 @@ dev/scripts/name_tests/          small NAME runs testing NAME itself (threads, f
 dev/scripts/method_studies/      studies behind decisions D19-D23 (layers, particle rates, grouping)
 dev/scripts/figures/             figures for the group slides
 data/                            local reference data (git-ignored)
+.claude/skills/name-jasmin/      Claude Code skill: running NAME 8.7.1 on JASMIN (observable behaviour)
 ```
 
 ## Licence and third-party software

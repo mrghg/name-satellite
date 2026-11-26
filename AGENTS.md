@@ -44,6 +44,9 @@ duplication and **disclosure**. This repository is meant to be shareable, so:
   variable names, in code comments or docs. Describe only behaviour a NAME user can observe (input
   syntax, output files, error messages, our measurements): `dev/notes/name-behaviour.md`.
 - Notes from reading NAME source go in `~/name-satellite-private/notes/` (outside git).
+- The `name-jasmin` skill (`.claude/skills/name-jasmin/`) holds what we know about running NAME on
+  JASMIN, with pointers to NAME's own documentation. Add new NAME findings there as well as to
+  `dev/notes/name-behaviour.md`; paraphrase the NAME docs (Crown copyright), never copy them.
 - NAME files are read where they are installed (e.g. the met declarations on the NAME GWS),
   never copied into the repo.
 
