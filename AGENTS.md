@@ -43,7 +43,8 @@ duplication and **disclosure**. This repository is meant to be shareable, so:
 - Never quote NAME source, or describe its internals with file names, line numbers or internal
   variable names, in code comments or docs. Describe only behaviour a NAME user can observe (input
   syntax, output files, error messages, our measurements): `dev/notes/name-behaviour.md`.
-- Notes from reading NAME source go in `~/name-satellite-private/notes/` (outside git).
+- Notes from reading NAME source go in `~/name-satellite-private/notes/` in the user's own home
+  (outside git, mode 700; create it if missing).
 - The `name-jasmin` skill (`.claude/skills/name-jasmin/`) holds what we know about running NAME on
   JASMIN, with pointers to NAME's own documentation. Add new NAME findings there as well as to
   `dev/notes/name-behaviour.md`; paraphrase the NAME docs (Crown copyright), never copy them.
@@ -66,8 +67,14 @@ duplication and **disclosure**. This repository is meant to be shareable, so:
 - Commit or push only when the user asks.
 
 ## Key paths (JASMIN)
-- NAME GWS: `~/name` = `/gws/ssde/j25a/name` (executables and UM met archive)
+- NAME GWS: `/gws/ssde/j25a/name` (executables and UM met archive; group `gws_name`). Use
+  absolute paths: `~/name`, `~/acrg` are personal symlinks some users have, not something to rely
+  on.
 - Patched NAME 8.7.1 (X20): `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid`, group `gws_name`
   only. Its patch is recorded in a local git repository there; never copy it into this repo.
-- ACRG GWS: `/gws/ssde/j25b/acrg`
-- Legacy code: `~/code/NAME_scripts`, `~/code/NAME_processing`, `~/code/acrg` (read-only reference)
+- ACRG GWS: `/gws/ssde/j25b/acrg` (each user's folder `/gws/ssde/j25b/acrg/$USER`)
+- Scratch: `/work/scratch-pw5/$USER/name-satellite/` (`prepare.SCRATCH`; `NAME_SATELLITE_SCRATCH`
+  moves it)
+- Legacy code (read-only reference): the GitHub repositories `ACRG-Bristol/NAME_scripts`,
+  `ACRG-Bristol/NAME_processing` and `ACRG-Bristol/acrg`. Ask the user where they are cloned
+  (the notes in `dev/notes/` cite them as `~/code/NAME_scripts` etc., where they were read).
