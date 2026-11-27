@@ -21,6 +21,37 @@ seed, output was bit-identical for 1, 4 and 8 threads (the docs only promise nea
   31 min at 240 h — 1.7× and 0.57× the bounded run, not the 4.5× the particle-hours suggest.
 - Particles in a bounded 30-day South America run stop after 159 h on average (median 92 h).
 
+## What NAME's timers miss
+With the default on-demand met method ("new threaded method"), the per-thread met-read timers in
+`<input>Timing.txt` record no calls, so met reading is not timed. In a 240 h unbounded run of 48
+sources the summary accounted for only 12% of the run (particle loop 191 s of 1,834 s); in 1-hour
+tests, about 75%. Measure from outside instead: sample the NAME process's `/proc/<pid>/task/*/stat`
+(CPU per thread), `/proc/<pid>/io` (`rchar`: bytes read, including from network file systems;
+`read_bytes` stays ~0 on Lustre) and `VmHWM`, and count "read from file" lines in `<input>Log.txt`.
+`src/name_satellite/future/sampler.py` (branch `future-method`) does this every 5 s. A 1-hour
+unbounded test read ~6.5 GB of Mk6 met (`rchar`).
+
+## A month of 10-day unbounded runs (Jan 2013, 22 days, 4 threads, Mk6)
+Settings: no side boundaries, 20 km top, deep convection `New`, near-source scheme for 1 h,
+0.1° and 0.5° boxes per release group plus a global 2.5° grid (`future-method` branch).
+- **Run time follows the particle count**: 43 min (0.15–0.2 M particles) to 5.2 h (1.05 M).
+- **Every run read ~134 GB of met** (`rchar`; ~1,170 Mk6 files for 11 days of global met), at
+  6–15 GB/min while reading. Peak memory 9.5–10.3 GB.
+- **Waiting on met reads is small**: periods with all threads idle while `rchar` rises are 0–5%
+  of busy runs, up to ~22% on light ones (too little particle work to hide the reads). With 4
+  threads, 3.0 were busy on average.
+- NAME's timers: particle loop 30–65% of the total, output < 2%; the rest (25–70%) is untimed
+  even with `Summary Only? = No` (met timers still record zero). That untimed time is
+  multi-threaded and grows with the particle count, so it is not just reading.
+- Variants, each against the same day's normal run:
+
+| Change | Wall time |
+|---|---|
+| 8 threads instead of 4 | 191 vs 277 min (1.45× for 2× the cores) |
+| `Prefetch? = No` | 120.1 vs 120.1 min (no effect) |
+| `Deep Convection? = No` | 176 vs 207 min (convection costs ~15%) |
+| Detailed timers (`Summary Only? = No`) | 119 vs 123 min (no cost) |
+
 ## Memory
 - Bounded domain: 3.8 GB (1 h travel) to 5.0–5.4 GB (30 days).
 - **No side boundaries adds a fixed ~5.6 GB** (9.4 GB), present from the start and not growing as

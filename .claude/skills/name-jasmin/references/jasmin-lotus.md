@@ -1,6 +1,6 @@
 # Running NAME on JASMIN / LOTUS2
 
-Working job-script writer: `~/code/name-satellite/src/name_satellite/lotus.py`.
+Working job-script writer: `src/name_satellite/lotus.py` in the `name-satellite` repository (see SKILL.md, "Key paths").
 
 ## Environment (as the NAME team's 8.7.1 demo scripts)
 ```bash
@@ -17,8 +17,8 @@ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/gws/ssde/j25a/name/lib/shumlib_2024.1
 mpirun -np 1 /gws/ssde/j25a/name/code/NAME-8.7.1/Executables_Linux/nameiii_64bit_par.exe input.txt
 ```
 Without the shumlib path NAME stops at start-up: `libshum_wgdos_packing.so: cannot open shared
-object file`. Batch jobs don't load your shell's PATH: call tools by full path (e.g.
-`~/.local/bin/uv`).
+object file`. Batch jobs don't load your shell's PATH: call tools by full path (find it with `command -v`,
+e.g. `command -v uv`; uv's default install is `~/.local/bin/uv`).
 
 ## Slurm
 Every job needs `--account`, `--partition` and `--qos`; a wrong pairing fails with "Invalid

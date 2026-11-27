@@ -22,8 +22,8 @@ You need:
 Then, on a sci node (e.g. `sci-vm-01`):
 
 ```bash
-git clone git@github.com:mrghg/name-satellite.git ~/code/name-satellite   # private: ask Matt for access
-cd ~/code/name-satellite
+git clone git@github.com:mrghg/name-satellite.git   # private: ask Matt for access; any folder works
+cd name-satellite
 uv sync
 uv run pytest -q          # ~25 s; tests that need reference data skip without them
 ```

@@ -1,6 +1,6 @@
 # NAME 8.7.1 input files: syntax and traps
 
-Observed in our runs (Nov 2026). Working generator: `~/code/name-satellite/src/name_satellite/name_input.py`.
+Observed in our runs (Nov 2026). Working generator: `src/name_satellite/name_input.py` in the `name-satellite` repository (see SKILL.md, "Key paths").
 
 ## General shape
 - Plain text made of blocks: a heading line ending in `:`, a header row of column names, then one
@@ -71,7 +71,11 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   output, don't compute them.
 - A rate on an instantaneous source (start = stop) releases nothing, and a zero maximum travel
   time makes NAME ignore the source (B03). Source `Max Age` defaults to infinity.
-- At most 3,000 sources per run for footprint field requests (one request per source per output time).
+- **At most 3,000 field requests per run** (requests differing only in their grids). 3,000 ran;
+  3,001 stopped within minutes with a fatal error saying a field-request limit "is not large
+  enough". Spreading them over identical copies of a horizontal grid, separate output groups or a
+  second time grid does not get round it. One request per source per grid, so with three output
+  grids per source a run holds at most 1,000 sources. Check the count before submitting.
 
 ## Pressure sources and identical sources (16 Nov 2026, GLIDE tests 2 and 3)
 - **A `Cuboid` source with `Z-Coord Pa` spreads its particles evenly in pressure**, not in height
@@ -121,6 +125,12 @@ reference runs (spec §7).
   request. 2,720 columns in one group made the run stop **at the end** (after 8 h 21 min) with
   "FATAL ERROR: too long an output line required for output group". 2,000 columns per group works:
   split requests into output groups of at most 2,000.
+- **At most 70 horizontal grids per run** (stock 8.7.1, fixed when NAME is compiled; not in the
+  docs): more stop the run at once with "FATAL ERROR: too many horizontal grids". The grids of the
+  UM global met definitions count too and take about 40: with UMG_Mk6PT, 25 grids of our own
+  worked and 35 failed (debug runs, 24 Nov 2026). Several small grids per run (e.g. one per release
+  group) therefore need a build with a higher limit: the ACRG-patched build allows 1,000 (from
+  24 Nov 2026; SKILL.md, key paths).
 - Point output on a `Locations:` set works (unstructured horizontal grid), as does a vertical
   `Z-Array`. Release-point met in one run: at most 200 time grids, 12 arrays, 86 values per array
   and 5 location sets per run (we hit these; one group per ~200 soundings).
@@ -138,6 +148,19 @@ Writes `Particles_C1.txt`: one record per particle when it stops. `Met? = Yes` a
 `OpenMP Options: Use OpenMP?, Threads, Output Group Threads` — `Yes, 4, 1` (further columns:
 Particle Threads, Particle Update Threads; A01 §1.2.7.7). Threads must equal the job's CPUs and
 `OMP_NUM_THREADS`; the docs also recommend `OMP_STACKSIZE=32m`.
+
+## Physics options tried together (24 Nov 2026, patched 8.7.1, Mk6, back-runs)
+No side boundaries, `Deep Convection? = New`, and the near-source turbulence scheme (`Velocity
+Memory Time` = `Inhomogeneous Time` = `01:00`, `Skew Time` = `00:00`, `Max # Full Particles` =
+1,000,000) in back-runs of 160–368 cuboid sources: accepted, empty error file. With the
+near-source scheme off, set `Max # Full Particles` to 2 (A01 §1.5.6).
+
+**`Max # Full Particles` limits every particle the run releases**, not just those still within
+the near-source time. With 1,000,000 and a 1 h near-source time, 10-day runs releasing 1.36 and
+1.44 M particles stopped after 7–9 min with "Full particle creation stopped because array is
+full", although at most 0.37 M were ever within an hour of release; runs releasing up to 0.97 M
+finished (Jan 2013). Set it equal to `Max # Particles` (we use 7,000,000; peak memory stayed
+9.5–10.3 GB).
 
 ## Messages
 A `Message Controls` block can make chosen warnings fatal (e.g. "No flow for particle/puff" =

@@ -35,8 +35,8 @@ Jobs are submitted with `sbatch` directly from the sci servers. Every job needs 
 | Where | Size / limit | Use |
 |---|---|---|
 | Home `~` | 100 GB quota (~9 GB used, 2026-11-09) | code, small outputs only; don't push it |
-| `~/acrg/mattrigby` = `/gws/ssde/j25b/acrg/mattrigby` | ACRG GWS, **97% full (~700 GB free of 22 TB, 2026-11-09)** | larger outputs to keep |
-| `/work/scratch-pw[4-7]/mattrigby` | max 100 TB in total; files **deleted 28 days after last access** | NAME working directories, restored met, intermediate files |
+| `/gws/ssde/j25b/acrg/$USER` | ACRG GWS, **97% full (~700 GB free of 22 TB, 2026-11-09)** | larger outputs to keep |
+| `/work/scratch-pw[4-7]/$USER` | max 100 TB in total; files **deleted 28 days after last access** | NAME working directories, restored met, intermediate files |
 
 Met restore (official `MetRestore_JASMIN.sh`): Mk6 files are **copied and unzipped** into the met
 folder (one day ≈ 3 GB gzipped, ≈ 12 GB unzipped, so ≈ 390 GB for a 30-day back-run). Mk10–12 are
@@ -48,11 +48,14 @@ Avoid putting more than 100,000 files in one directory.
 ## Paths
 | What | Path |
 |---|---|
-| NAME GWS (executables, UM met) | `~/name` = `/gws/ssde/j25a/name` |
-| NAME 8.7.1 | `~/name/code/NAME-8.7.1` (`nameiii_64bit_par.exe`, `nameiii_eccodes_NetCDF_64bit_par.exe`) |
+| NAME GWS (executables, UM met) | `/gws/ssde/j25a/name` (Unix group `gws_name`) |
+| NAME 8.7.1 | `/gws/ssde/j25a/name/code/NAME-8.7.1` (`nameiii_64bit_par.exe`, `nameiii_eccodes_NetCDF_64bit_par.exe`) |
 | NAME 8.7.1, ACRG-patched (fate records with particle index and fate code, X20) | `/gws/ssde/j25b/acrg/mattrigby/NAME-8.7.1-fateid` (group `gws_name` only; built with its own `build_lotus.sbatch`; `met.PATCHED_NAME_DIR`) |
 | UM topography | `/gws/ssde/j25a/name/data/UMTopogData` |
-| ACRG GWS | `/gws/ssde/j25b/acrg` |
+| ACRG GWS | `/gws/ssde/j25b/acrg` (Unix group `gws_acrg`) |
+
+Some users keep symlinks to the workspaces in their home (e.g. `~/name`, `~/acrg`); the code and
+docs use the absolute paths above, so nothing depends on them.
 
 ## UM global met coverage (archive, as of 2026-11-06)
 | Version | Coverage |

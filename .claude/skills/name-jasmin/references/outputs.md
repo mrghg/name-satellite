@@ -1,7 +1,7 @@
 # NAME 8.7.1 output files
 
-Readers: `~/code/name-satellite/src/name_satellite/name_output.py` (`read_fields`,
-`read_name_fate_file`, `drop_repeated_fate_records`).
+Readers: `src/name_satellite/name_output.py` (`read_fields`, `read_name_fate_file`,
+`drop_repeated_fate_records`) in the `name-satellite` repository (see SKILL.md, "Key paths").
 
 ## Files next to the input
 - `<input>Log.txt`: ends with "Run completed successfully at ..." on success.
@@ -62,6 +62,10 @@ Readers: `~/code/name-satellite/src/name_satellite/name_output.py` (`read_fields
   domain", one particle time step apart (10 s in a small test; **180 s** in a 352-source 30-day
   run). The first record is the exit (always outside the domain). Keep each particle's first
   record (allow gaps up to the sync time).
+- 10-day unbounded runs (Jan 2013, 22 days, 0.15–1.05 M particles each): 0–38 particles per day
+  written twice, 60–300 s apart (one gap per run). Once, a particle that left through the top
+  45 s before the maximum travel time had a second record at exactly that time with code 24
+  (8 + 16): **the later record may add bit 16**. The first record is still the exit.
 - A few "left the domain" records sit exactly on an edge as printed (beyond it by less than the
   5-decimal precision): treat as exits through that edge.
 - In unbounded runs (no side boundaries) every particle has one record at the maximum travel time

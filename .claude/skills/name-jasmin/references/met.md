@@ -1,8 +1,9 @@
 # UM global met for NAME on JASMIN
 
 Checked 13 Nov 2026 by listing `/gws/ssde/j25a/name/met_archive/Global/`. Working code:
-`~/code/name-satellite/src/name_satellite/met.py` (`MET_VERSIONS`, `met_version_for_period`,
-`required_met_files`, `missing_met_files`, `restore_met_files`).
+`src/name_satellite/met.py` (`MET_VERSIONS`, `met_version_for_period`, `required_met_files`,
+`missing_met_files`, `restore_met_files`) in the `name-satellite` repository (see SKILL.md,
+"Key paths").
 
 ## Versions (59-level, partitioned "PT" files: 14 parts, 3-hourly)
 
