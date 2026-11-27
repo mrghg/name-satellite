@@ -168,3 +168,16 @@ Status key: ☐ not started, ◐ in progress, ☑ done.
   there is one column field per sounding. Validate against Σ wᵢ·fpᵢ from per-level runs.
 - (b) NAME NetCDF field output (Output Route `N`, NetCDF executable) instead of text. Measure
   size and speed on a real day.
+
+## Experimental: the future method (`name_satellite.future`)
+Developed alongside the phases above, on short branches off main; see
+[future/scoping.md](future/scoping.md). Rules: the legacy-reproducing workflow does not change for
+it (no switches in shared code; its choices are `future.Options` fields), shared modules never
+import `future`, and the legacy validation tests keep passing.
+- ☑ January 2013 month (10-day runs, nested grids, end positions); reader and notebook.
+- ☑ One species per sounding (D28): same footprints, 6–11× fewer field requests.
+- ◐ Run-cost model and run sizing ([future/run-sizing.md](future/run-sizing.md)); threads,
+  read contention and multi-day runs still being measured.
+- ☐ A planner that groups releases into jobs for the fewest core-hours.
+- ☐ Output options to scope: footprints for upper layers (mass conservation), time-resolved
+  footprints.

@@ -17,6 +17,14 @@ It replaces the ACRG satellite workflow that was spread across three legacy repo
 > day (1 January 2013). The footprint file format is a draft for the group's review, and the
 > domains for production runs are still being decided. See [docs/plan.md](docs/plan.md).
 
+> **Experimental: the future method** (`name_satellite.future`, `docs/future/`). A proposed
+> replacement for the legacy-matching workflow: 10-day back-runs with no side boundaries,
+> footprints on nested 0.1° / 0.5° / 2.5° grids, and particle end positions for the boundary
+> term. Its options, outputs and file format are drafts under test; nothing in the main workflow
+> depends on it. Method: [docs/future/scoping.md](docs/future/scoping.md); file:
+> [docs/future/file-format.md](docs/future/file-format.md); viewing a month:
+> `notebooks/future_footprints.ipynb`.
+
 ## How it works
 
 **To run it and inspect every file on the way, follow [docs/run-a-day.md](docs/run-a-day.md).**
@@ -97,6 +105,9 @@ dev/scripts/legacy_validation/   stage 1-2 validation against the legacy runs an
 dev/scripts/name_tests/          small NAME runs testing NAME itself (threads, fate records, set-up)
 dev/scripts/method_studies/      studies behind decisions D19-D23 (layers, particle rates, grouping)
 dev/scripts/figures/             figures for the group slides
+src/name_satellite/future/       EXPERIMENTAL future method (setup, processing, reading its file, profiling)
+docs/future/                     the future method's scoping note and draft file format
+notebooks/                       Jupyter notebooks (`uv sync --group notebooks`)
 data/                            local reference data (git-ignored)
 .claude/skills/name-jasmin/      Claude Code skill: running NAME 8.7.1 on JASMIN (observable behaviour)
 ```

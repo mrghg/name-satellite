@@ -50,6 +50,12 @@ duplication and **disclosure**. This repository is meant to be shareable, so:
 - NAME files are read where they are installed (e.g. the met declarations on the NAME GWS),
   never copied into the repo.
 
+## The experimental future method
+`src/name_satellite/future/` (docs: `docs/future/`) is a proposed new method, kept apart from the
+legacy-reproducing workflow: never add future switches to shared modules (its choices are
+`future.Options` fields), shared modules never import `future`, and the legacy tests must keep
+passing. New experimental features go on short branches off main.
+
 ## Rules
 - Tooling: `uv` only (`uv sync`, `uv run ...`, `uv add ...`); never pip-install into the system.
   Python 3.12.

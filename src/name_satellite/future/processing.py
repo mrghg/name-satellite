@@ -19,9 +19,15 @@ Per day (``process_day``), from the run folder written by ``future.setup``:
 3. Per sounding s: every array = Σ_j w_sj × (its group's level-j array), w = pressure weight ×
    averaging kernel over the modelled levels, release level j = retrieval level j (as the main
    processing, D23/D26: one column footprint per sounding). The end-position histogram then sums
-   to Σ_j w_sj (checked).
+   to Σ_j w_sj (checked). In the "species" layout (``future.setup``, D28, the default) NAME has
+   already made the footprint sums: each sounding's species field is converted directly
+   (``species_footprint``); end positions are still weighted here from the per-release fate
+   records.
 4. The 0.1° and 0.5° boxes go into fixed-size blocks (``future.grids``: 125 x 125, 105 x 105),
    zero-padded, with their offset in the global grid of that level and their true shape.
+
+``process_day`` also reads one part of a split day (``future.setup.split_plan``): the soundings
+whose release groups that part ran.
 
 ``process_month`` assembles the days, sorted by time and sounding ID, and ``write_file`` writes
 float32 arrays rounded to 10 significant bits (BitRound) and compressed (zlib 4, shuffle), one
@@ -54,7 +60,7 @@ from name_satellite.future.grids import (
     global_centres,
     offset_from_centres,
 )
-from name_satellite.future.setup import MAX_AGE_HOURS, SYNC_MINUTES
+from name_satellite.future.setup import MAX_AGE_HOURS, SYNC_MINUTES, column_weights
 from name_satellite.name_output import (
     drop_repeated_fate_records,
     read_fields,
@@ -87,34 +93,47 @@ def read_run(day_folder, allow_test=False):
     if info["options"]["test"] and not allow_test:
         raise ValueError(f"{day_folder} is a test run (1 h of travel); use --allow-test")
     day = pd.Timestamp(info["day"])
-    with xr.open_dataset(day_folder / f"obs_{info['site']}_{day:%Y%m%d}.nc") as f:
+    # A part of a split day (future.setup.split_plan) has the day's observations and release
+    # groups in the day folder, and its own release plan, grids and output.
+    source_folder = Path(info["day_folders"][0]) if "part" in info else day_folder
+    with xr.open_dataset(source_folder / f"obs_{info['site']}_{day:%Y%m%d}.nc") as f:
         obs = f.load()
     plan = pd.read_csv(day_folder / "release_plan.csv", dtype={"release_group": str},
                        parse_dates=["release_start", "release_end"])  # fmt: skip
-    members = pd.read_csv(day_folder / "release_groups.csv", dtype=str)
+    members = pd.read_csv(source_folder / "release_groups.csv", dtype=str)
     # Soundings dropped by future.setup (D27) have no releases: skip exactly those.
-    dropped_file = day_folder / "dropped_soundings.csv"
+    dropped_file = source_folder / "dropped_soundings.csv"
     dropped = set()
     if dropped_file.exists():
         dropped = set(pd.read_csv(dropped_file, dtype={"sounding_id": str})["sounding_id"])
     ids = [str(s) for s in obs["sounding_id"].values]
     if set(ids) - dropped != set(members["sounding_id"]):
         raise ValueError(f"{day_folder}: release groups don't match the soundings not dropped")
+    if "part" in info:  # only the soundings whose release groups are in this part
+        members = members[members["release_group"].isin(set(plan["release_group"]))]
+        dropped |= set(ids) - set(members["sounding_id"])
     obs = obs.isel(sounding_id=[i for i, s in enumerate(ids) if s not in dropped])
     boxes = pd.read_csv(day_folder / "grids.csv", dtype={"release_group": str})
+    # Runs made before Options.layout existed used the "sources" layout.
+    layout = info["options"].get("layout", "sources")
+    species = None
+    if layout == "species":
+        species = pd.read_csv(day_folder / "species.csv", dtype=str)
+        species = species.set_index("sounding_id")["species"]
     fields = {}
     for grid in [*boxes["fine_grid"], *boxes["medium_grid"], "HGridC"]:
         files = list((day_folder / "output").glob(f"Fields_{grid}_C1_T1_*.txt"))
         if len(files) != 1:
             raise ValueError(f"{day_folder}: expected one fields file for {grid}, found {files}")
-        fields[grid] = read_fields(files[0])
+        fields[grid] = read_fields(files[0], label="source" if layout == "sources" else "species")
     particles, z_units = read_name_fate_file(day_folder / "output" / "Particles_C1.txt")
     if z_units != "m agl":
         raise ValueError(f"Fate heights in {z_units}, expected m agl")
     # Repeated exit records lie at most one sync step apart (X20).
     particles = drop_repeated_fate_records(particles, max_gap_seconds=60.0 * SYNC_MINUTES)
     return {"info": info, "obs": obs, "plan": plan, "members": members, "boxes": boxes,
-            "fields": fields, "particles": particles}  # fmt: skip
+            "fields": fields, "particles": particles, "layout": layout,
+            "species": species}  # fmt: skip
 
 
 # ---------------------------------------------------------------------------------------------
@@ -126,6 +145,14 @@ def level_footprints(field, sources, release_seconds):
     """Footprints (level, lat, lon) of the given sources on one grid, (mol/mol)/(mol m-2 s-1)."""
     area = grid_cell_area_m2(field["lat"].values, field["lon"].values)
     return footprint_from_mixing_ratio(field.sel(source=sources).values, area, release_seconds)
+
+
+def species_footprint(field, species, release_seconds):
+    """Column footprint (lat, lon) of one sounding's species on one grid ("species" layout),
+    (mol/mol)/(mol m-2 s-1). Its releases emitted the species at the sounding's weights (g/s),
+    so the field is already Σ_j weight_j x level j's field at 1 g/s; the conversion is linear."""
+    area = grid_cell_area_m2(field["lat"].values, field["lon"].values)
+    return footprint_from_mixing_ratio(field.sel(species=species).values, area, release_seconds)
 
 
 def end_position_fractions(particles):
@@ -200,10 +227,10 @@ def process_day(day_folder, allow_test=False):
         raise ValueError("release_groups.csv and the observation file have different soundings")
     if set(group_of) != set(boxes["release_group"]) or set(group_of) != set(plan["release_group"]):
         raise ValueError("Release groups differ between release_groups.csv, plan and grids.csv")
-    weights = (obs["pressure_weights"].values[:, :n_levels]
-               * obs["xch4_averaging_kernel"].values[:, :n_levels]).astype(float)  # fmt: skip
-    if not np.isfinite(weights).all():
-        raise ValueError("Missing pressure weights or averaging kernels in the modelled levels")
+    weights = column_weights(obs, n_levels)
+    by_species = run["layout"] == "species"
+    if by_species and sorted(run["species"].index) != sorted(sounding_ids):
+        raise ValueError("species.csv and the observation file have different soundings")
     particles["source_number"] = particles["source_number"].astype(int)
     by_source = dict(tuple(particles.groupby("source_number")))
 
@@ -229,9 +256,8 @@ def process_day(day_folder, allow_test=False):
             raise ValueError(f"End positions of group {row['release_group']} do not sum to 1")
         first = releases.iloc[0]
         per_group[row["release_group"]] = {
-            "fine": level_footprints(fields[row["fine_grid"]], sources, release_seconds),
-            "medium": level_footprints(fields[row["medium_grid"]], sources, release_seconds),
-            "coarse": level_footprints(fields["HGridC"], sources, release_seconds),
+            "grids": {"fine": row["fine_grid"], "medium": row["medium_grid"], "coarse": "HGridC"},
+            "sources": sources,
             "ends": ends,
             "fine_box": fine_box,
             "medium_box": medium_box,
@@ -248,12 +274,27 @@ def process_day(day_folder, allow_test=False):
     extra = {name: [] for name in ("fine_offset", "fine_shape", "medium_offset", "medium_shape",
                                    "release_lon", "release_lat", "release_time", "end_time",
                                    "top_exit_mean_age")}  # fmt: skip
+    # "sources" layout: each group's level footprints, weighted per sounding below.
+    if not by_species:
+        for group in per_group.values():
+            group["levels"] = {
+                level: level_footprints(fields[grid], group["sources"], release_seconds)
+                for level, grid in group["grids"].items()
+            }
+
     for s, sounding in enumerate(sounding_ids):
         g = per_group[group_of[sounding]]
         w = weights[s]
-        data["srr_fine"].append(in_block(np.tensordot(w, g["fine"], axes=1), FINE))
-        data["srr_medium"].append(in_block(np.tensordot(w, g["medium"], axes=1), MEDIUM))
-        data["srr_coarse"].append(np.tensordot(w, g["coarse"], axes=1))
+        column = {}
+        for level, grid in g["grids"].items():
+            if by_species:  # NAME weighted the levels (the releases' strengths)
+                column[level] = species_footprint(fields[grid], run["species"][sounding],
+                                                  release_seconds)  # fmt: skip
+            else:
+                column[level] = np.tensordot(w, g["levels"][level], axes=1)
+        data["srr_fine"].append(in_block(column["fine"], FINE))
+        data["srr_medium"].append(in_block(column["medium"], MEDIUM))
+        data["srr_coarse"].append(column["coarse"])
         ends = np.tensordot(w, g["ends"], axes=1)
         if not np.isclose(ends.sum(), w.sum(), rtol=1e-9, atol=0):
             raise ValueError(f"End positions of sounding {sounding} do not add up to its weight")

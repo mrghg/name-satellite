@@ -48,9 +48,11 @@ def batch_input_lines(batch_folder, run_folder):
     and the number of releases."""
     info = json.loads((batch_folder / "day.json").read_text())
     site = SITES[info["site"]]
-    options = Options(**{**info["options"], "test": True})
+    # This test is about per-release requests: the "sources" layout.
+    options = Options(**{**info["options"], "test": True, "layout": "sources"})
     day_folders = [Path(p) for p in info["day_folders"]]
-    plans = {f.name: final_plan(f, site, info["product"], write_tables=False) for f in day_folders}
+    plans = {f.name: final_plan(f, site, info["product"], write_tables=False)[0]
+             for f in day_folders}  # fmt: skip
     plan = combine_release_plans(plans)
     boxes = group_boxes(plan)
     boxes["coarse_grid"] = "HGridC1"

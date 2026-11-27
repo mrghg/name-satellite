@@ -65,6 +65,10 @@ Dispersion Domain, No, Lat-Long, -96.329, -19.449, -64.981, 27.557, No, m agl, 2
   enough". Spreading them over identical copies of a horizontal grid, separate output groups or a
   second time grid does not get round it. One request per source per grid, so with three output
   grids per source a run holds at most 1,000 sources. Check the count before submitting.
+- **Several species from one source**: repeat the `Source Strength` column, one
+  `<species> <rate> g/s` per column, blanks for unused ones; declare `Max # Species` in
+  `Main Options`. A request with a `Species` and a blank `Source` then collects that species from
+  every source; run time grows with the number of requests, not of species (performance.md).
 
 ## Grids and field requests
 - `Horizontal Grids: Name, H-Coord, nX, nY, dX, dY, X Min, Y Min` — **X Min / Y Min are the

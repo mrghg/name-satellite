@@ -27,6 +27,18 @@ Steps 1-7 are those of the main workflow (``prepare``): soundings, the model sur
   - boundary-layer depth limits as the NAME team's met declarations (minimum 100 m; the main
     workflow keeps legacy's 40 m).
 * No release-point met requests (not used by ``future.processing``).
+* **Layouts** (``Options.layout``): how NAME's output maps to soundings.
+  - ``species`` (default): one species per sounding. Each release emits the species of every
+    sounding sharing its release group, at that sounding's weight for the release's level
+    (pressure weight x averaging kernel, g/s); three field requests per sounding (by species).
+    NAME then outputs each sounding's column directly. At most ``MAX_SPECIES_PER_RUN`` soundings
+    per run.
+  - ``sources``: one species; three field requests per release, each restricted to it; the
+    levels are weighted in ``future.processing``. Gives each level's footprint, but run time
+    grows with particles x field requests in the run, so it is much slower for large runs.
+  Both give the same column footprints (to NAME's output precision; 7 Jan 2013, 42 soundings:
+  cells within 3e-6 of each field's maximum). See dev/notes/name-behaviour.md and
+  docs/future/run-sizing.md for the timing.
 * Soundings whose model surface pressure is outside 0.9-1.1 × the retrieval's (steep terrain: the
   model ground more than ~1 km off) are dropped and listed in ``dropped_soundings.csv`` (D27)
   instead of stopping the day, as the main workflow does.
@@ -36,6 +48,8 @@ written, memory, met progress every 5 s, in ``profile.csv``), and NAME's timer s
 With ``--profiling``, extra runs of days already in the month change one thing each
 (``PROFILING_VARIANTS``): threads, prefetch, detailed timers, convection, the near-source scheme,
 and three days in one run. They reuse their days' observation files and surface-pressure runs.
+``split`` makes the opposite test: one day's release groups shared between N runs (``split_plan``),
+as run time grows with particles x releases in a run.
 
 Command line
 ------------
@@ -44,9 +58,13 @@ Command line
     uv run python -m name_satellite.future.setup PRODUCT SITE YYYY-MM WORK [--test] [--profiling]
         [--days=D1,D2,...]
     uv run python -m name_satellite.future.setup main-input RUN_FOLDER
+    uv run python -m name_satellite.future.setup split MONTH_FOLDER YYYY-MM-DD[,...] N
+        [--parts=1,2] [--threads=T] [--output-grids=coarse] [--label=NAME]
 
 The month folder is ``WORK/<SITE>_<PRODUCT>_<YYYYMM>_future/``; submit with its ``submit.sh``.
 ``--test``: 1 hour of travel, debug queue. ``main-input`` is what each main job runs first.
+``split`` writes ``profile_<label>_part<k>`` folders (default label ``split<N>_<YYYYMMDD>``) for
+already-prepared days, each with its job (submit with ``sbatch``); options as listed above.
 
 Files: as ``prepare`` (``summary.csv``, ``restore_met.sbatch``, ``submit.sh``; per day
 ``obs_*.nc``, ``day.json``, ``surface_pressure/``, ``job.sbatch``; written on LOTUS2:
@@ -80,7 +98,7 @@ from name_satellite.future.grids import (
 from name_satellite.l2_files import L2FileMissing, download_l2
 from name_satellite.lotus import REPO, write_job_script, write_met_restore_job
 from name_satellite.met import PATCHED_NAME_DIR, met_version_for_period
-from name_satellite.name_input import OutputGrid, RunSettings, run_timing
+from name_satellite.name_input import NAME_TIME_FORMAT, OutputGrid, RunSettings, run_timing
 from name_satellite.observations import read_l2, to_obs, write_obs_file
 from name_satellite.prepare import (
     L2_CACHE,
@@ -120,7 +138,10 @@ MAX_FIELD_OUTPUT_GROUPS = 1000
 # in a run, whatever their horizontal or time grids or output groups (tests 26 Nov 2026,
 # dev/scripts/name_tests/field_request_limit.py). Three per release: at most 1,000 releases.
 MAX_FIELD_REQUESTS_PER_RUN = 3000
-REQUESTS_PER_RELEASE = 3  # fine, medium and coarse grid
+REQUESTS_PER_RELEASE = {"nested": 3, "coarse": 1}  # per Options.output_grids
+# Species particles can carry in NAME 8.7.1 (not yet reached in a run): in the "species" layout,
+# at most this many soundings per run.
+MAX_SPECIES_PER_RUN = 216
 SAMPLER = REPO / "src" / "name_satellite" / "future" / "sampler.py"
 
 # Release groups share releases within a 0.1° cell of the global grid (D20, with this grid).
@@ -138,6 +159,13 @@ class Options:
     prefetch: bool = True
     detailed_timers: bool = False
     test: bool = False
+    # "nested": fine, medium and coarse requests per release; "coarse": the global 2.5° grid only
+    # (a profiling test of how run time depends on field requests; not processable)
+    output_grids: str = "nested"
+    # How releases map to footprints in NAME (see the module docstring, "Layouts"):
+    # "species": one species per sounding, its weights as the releases' strengths (default);
+    # "sources": one species, field requests per release, weights applied in processing.
+    layout: str = "species"
 
 
 # Profiling variants: name -> (days used, options). Each changes one thing from the defaults.
@@ -226,11 +254,11 @@ def timer_block(options):
     return f"Timer Options:\nUse Timers?, Summary Only?\nYes, {summary}\n"
 
 
-def grids_block(boxes, settings, timing):
-    """Horizontal grids (every group's fine and medium box, the global coarse grid), and the
-    vertical and temporal grids of the main workflow."""
+def grids_block(boxes, settings, timing, output_grids="nested"):
+    """Horizontal grids (every group's fine and medium box unless ``output_grids`` is "coarse",
+    the global coarse grid), and the vertical and temporal grids of the main workflow."""
     lines = ["Horizontal Grids:", "Name, H-Coord, nX, nY, dX, dY, X Min, Y Min"]
-    for row in boxes.itertuples():
+    for row in boxes.itertuples() if output_grids == "nested" else []:
         lines.append(name_grid_line(row.fine_grid, box_of(row._asdict(), "fine"), FINE.cell_deg))
         lines.append(
             name_grid_line(row.medium_grid, box_of(row._asdict(), "medium"), MEDIUM.cell_deg)
@@ -272,9 +300,10 @@ def dispersion_options_block(settings, options):
     )
 
 
-def sources_and_requests_block(plan, boxes, settings, timing):
+def sources_and_requests_block(plan, boxes, settings, timing, output_grids="nested"):
     """Sources as the main workflow; per source three field requests (its group's fine and medium
-    grids, the global coarse grid), one output group per grid."""
+    grids, the global coarse grid; only the last if ``output_grids`` is "coarse"), one output group
+    per grid."""
     standard = name_input.sources_and_requests_block(plan, settings, timing)
     sources = standard[: standard.index("Output Requirements - Fields:")]
     n_steps = timing["window_hours"] * 60 // settings.sync_minutes
@@ -288,13 +317,104 @@ def sources_and_requests_block(plan, boxes, settings, timing):
     for release in plan.itertuples():
         number = release.source_name.removeprefix("SourceID_")
         group = by_group.loc[release.release_group]
-        for grid in (group["fine_grid"], group["medium_grid"], "HGridC"):
+        grids = (group["fine_grid"], group["medium_grid"], "HGridC")
+        for grid in grids if output_grids == "nested" else grids[-1:]:
             lines.append(
                 f"Req_{grid}_{number}, Mixing Ratio, INERT-TRACER, {release.source_name}, {grid}, "
                 f"ZGrid1, TGridEndOfRun, No, Int, {timing['window_hours']}:00, {n_steps}, No, D, "
                 f"TZ, T, IA, Fields_{grid}"
             )
     return sources + "\n".join(lines) + "\n"
+
+
+def species_names(weights):
+    """NAME species name of each sounding (``SND<n>``, in order of first appearance): a Series
+    indexed by sounding_id."""
+    soundings = list(dict.fromkeys(weights["sounding_id"]))
+    return pd.Series([f"SND{k}" for k in range(1, len(soundings) + 1)],
+                     index=pd.Index(soundings, name="sounding_id"), name="species")  # fmt: skip
+
+
+def species_main_options_block(settings, n_sources, n_species):
+    """``Main Options`` as ``name_input.main_options_block``, with room for every species."""
+    return (
+        "Main Options:\n"
+        "Absolute or Relative Time?, Fixed Met?, Flat Earth?, Run Name, Random Seed, "
+        "Max # Species, Max # Sources, Max # Field Reqs, Max # Field Output Groups, Backwards?\n"
+        f"Absolute, No, No, {settings.run_name}, {settings.random_seed}, {n_species}, "
+        f"{n_sources}, {settings.max_field_requirements}, {settings.max_field_output_groups}, "
+        "Yes\n"
+    )
+
+
+def species_block(species):
+    """One inert tracer per sounding, as ``name_input.species_block``'s INERT-TRACER (molecular
+    weight 1 g/mol, so a release of w g/s is w mol/s)."""
+    lines = ["Species:",
+             "Name, Category, Half Life, UV Loss Rate, Surface Resistance, Deposition Velocity, "
+             "Molecular Weight, Material Unit"]  # fmt: skip
+    lines += [f"{name}, INERT, Stable, 0.00E+00, , 0.0, 1.0, g" for name in species]
+    lines += ["", "Species Uses:", "Species, On Particles?, On Fields?, Advect Field?"]
+    lines += [f"{name}, Yes, No, No" for name in species]
+    return "\n".join(lines) + "\n"
+
+
+def species_sources_and_requests_block(plan, boxes, weights, species, settings, timing,
+                                       output_grids="nested"):  # fmt: skip
+    """Sources and field requests of the "species" layout.
+
+    Each release emits the species of every sounding sharing its release group, at that
+    sounding's weight for the release's level (g/s, i.e. mol/s: molecular weight 1). A sounding's
+    field is then already Σ_j weight_j x (level j's field at 1 g/s), the column footprint once
+    converted (``footprints.footprint_from_mixing_ratio``). Three field requests per sounding (its
+    group's fine and medium grids and the global coarse grid; only the last if ``output_grids``
+    is "coarse"), by species, not restricted to a source; one output group per grid.
+
+    The source lines are those of ``name_input.sources_and_requests_block`` except for the
+    strengths. Weights are written to 7 significant digits.
+    """
+    per_group = weights.groupby("release_group", sort=False)["sounding_id"].unique()
+    n_columns = max(len(v) for v in per_group)
+    weight = weights.set_index(["sounding_id", "level_number"])["weight"]
+    lines = [
+        "Sources:",
+        "Name, Start Time, Stop Time, # Particles, "
+        + ", ".join(["Source Strength"] * n_columns)
+        + ", Shape, H-Coord, Z-Coord, Set of Locations, Location, dH-Metres?, dZ-Metres?, X, Y, "
+        "Z, dX, dY, dZ, Angle, Top Hat, Plume Rise?, Temperature, Volume Flow Rate, Max Age, "
+        "No Reflect?",
+    ]
+    for release in plan.itertuples():
+        strengths = [f"{species[s]} {weight[(s, release.level_number)]:.6e} g/s"
+                     for s in per_group[release.release_group]]  # fmt: skip
+        strengths += [""] * (n_columns - len(strengths))
+        # Backwards run: the source "starts" at the later time and "stops" at the earlier one.
+        lines.append(
+            f"{release.source_name}, {release.release_start.strftime(NAME_TIME_FORMAT)}, "
+            f"{release.release_end.strftime(NAME_TIME_FORMAT)}, "
+            f"{release.particles_per_second}/sec, {', '.join(strengths)}, Cuboid, Lat-Long, Pa, "
+            f", , No, No, {release.lon!r}, {release.lat!r}, {release.z_pa!r}, {release.dlon!r}, "
+            f"{release.dlat!r}, {release.dz_pa!r}, 0.0, Yes, No, 0.0, 0.0, infinity, Yes"
+        )
+    n_steps = timing["window_hours"] * 60 // settings.sync_minutes
+    lines += [
+        "",
+        "Output Requirements - Fields:",
+        "Name, Quantity, Species, Source, H-Grid, Z-Grid, T-Grid, BL Average, T Av Or Int, "
+        "Av Time, # Av Times, Sync?, Output Route, Across, Separate File, Output Format, "
+        "Output Group",
+    ]
+    by_group = boxes.set_index("release_group")
+    group_of = weights.drop_duplicates("sounding_id").set_index("sounding_id")["release_group"]
+    for sounding, name in species.items():
+        group = by_group.loc[group_of[sounding]]
+        grids = (group["fine_grid"], group["medium_grid"], "HGridC")
+        for grid in grids if output_grids == "nested" else grids[-1:]:
+            lines.append(
+                f"Req_{grid}_{name}, Mixing Ratio, {name}, , {grid}, ZGrid1, TGridEndOfRun, No, "
+                f"Int, {timing['window_hours']}:00, {n_steps}, No, D, TZ, T, IA, Fields_{grid}"
+            )
+    return "\n".join(lines) + "\n"
 
 
 def met_declarations_block(settings, options):
@@ -318,10 +438,26 @@ def met_declarations_block(settings, options):
     return "\n".join(lines) + "\n"
 
 
-def input_text(plan, boxes, settings, options):
-    """The whole NAME input file of a future-method run."""
-    if REQUESTS_PER_RELEASE * len(plan) > MAX_FIELD_REQUESTS_PER_RUN:
-        raise ValueError(f"{len(plan)} releases need {REQUESTS_PER_RELEASE * len(plan)} field "
+def input_text(plan, boxes, settings, options, weights=None):
+    """The whole NAME input file of a future-method run.
+
+    weights: the soundings' weights (``weights_table``) of the plan's release groups; needed for
+    the "species" layout (one species per sounding), unused for "sources".
+    """
+    if options.layout == "species":
+        if weights is None:
+            raise ValueError("The species layout needs the soundings' weights")
+        n_species = weights["sounding_id"].nunique()
+        if n_species > MAX_SPECIES_PER_RUN:
+            raise ValueError(f"{n_species} soundings in one run; particles can carry at most "
+                             f"{MAX_SPECIES_PER_RUN} species")  # fmt: skip
+        n_requests = REQUESTS_PER_RELEASE[options.output_grids] * n_species
+    elif options.layout == "sources":
+        n_requests = REQUESTS_PER_RELEASE[options.output_grids] * len(plan)
+    else:
+        raise ValueError(f"Unknown layout {options.layout!r}")
+    if n_requests > MAX_FIELD_REQUESTS_PER_RUN:
+        raise ValueError(f"The run needs {n_requests} field "
                          f"requests; NAME allows {MAX_FIELD_REQUESTS_PER_RUN} per run")  # fmt: skip
     for column in ("fine", "medium"):
         too_big = [box_shape(box_of(r, column), (FINE if column == "fine" else MEDIUM).cell_deg)
@@ -330,19 +466,31 @@ def input_text(plan, boxes, settings, options):
         if max(max(s) for s in too_big) > limit:
             raise ValueError(f"A {column} box is larger than its {limit}-cell block")
     timing = run_timing(plan, settings)
+    if options.layout == "species":
+        species = species_names(weights)
+        main_options = species_main_options_block(settings, len(plan), len(species))
+        species_text = species_block(species)
+        sources_and_requests = species_sources_and_requests_block(
+            plan, boxes, weights, species, settings, timing, options.output_grids
+        )
+    else:
+        main_options = name_input.main_options_block(settings, len(plan))
+        species_text = name_input.species_block()
+        sources_and_requests = sources_and_requests_block(plan, boxes, settings, timing,
+                                                          options.output_grids)  # fmt: skip
     blocks = [
         "! NAME input file: future method (name_satellite.future.setup)\n",
-        name_input.main_options_block(settings, len(plan)),
+        main_options,
         name_input.restart_and_cases_block(),
         name_input.openmp_block(settings),
         timer_block(options),
         name_input.files_and_coordinates_block(settings),
-        grids_block(boxes, settings, timing),
+        grids_block(boxes, settings, timing, options.output_grids),
         domain_block(settings, timing),
-        name_input.species_block(),
+        species_text,
         dispersion_options_block(settings, options),
         name_input.particle_fate_block(settings),
-        sources_and_requests_block(plan, boxes, settings, timing),
+        sources_and_requests,
         met_declarations_block(settings, options),
     ]
     return "\n".join(blocks)
@@ -353,9 +501,37 @@ def input_text(plan, boxes, settings, options):
 # ---------------------------------------------------------------------------------------------
 
 
+def column_weights(obs, n_levels):
+    """Pressure weight x averaging kernel of each sounding's modelled levels: array (sounding,
+    level), dimensionless. Each sounding's column footprint is Σ_j weight_j x level j's footprint.
+
+    Raises:
+        ValueError if a weight is missing or negative.
+    """
+    weights = (obs["pressure_weights"].values[:, :n_levels]
+               * obs["xch4_averaging_kernel"].values[:, :n_levels]).astype(float)  # fmt: skip
+    if not np.isfinite(weights).all():
+        raise ValueError("Missing pressure weights or averaging kernels in the modelled levels")
+    if (weights < 0).any():
+        raise ValueError("Negative pressure weight x averaging kernel in the modelled levels")
+    return weights
+
+
+def weights_table(obs, members, n_levels):
+    """Long table of the weights: sounding_id, release_group, level_number, weight."""
+    weights = column_weights(obs, n_levels)
+    group_of = members.set_index("sounding_id")["release_group"]
+    rows = []
+    for s, sounding in enumerate(str(i) for i in obs["sounding_id"].values):
+        for level in range(1, n_levels + 1):
+            rows.append((sounding, group_of[sounding], level, weights[s, level - 1]))
+    return pd.DataFrame(rows, columns=["sounding_id", "release_group", "level_number", "weight"])
+
+
 def final_plan(day_folder, site, product, write_tables=True):
     """A day's release plan with levels scaled to the model surface (D19): as
-    ``prepare.write_main_input``, with release groups on the global 0.1° grid.
+    ``prepare.write_main_input``, with release groups on the global 0.1° grid. Returns the plan
+    and the soundings' weights (``weights_table``).
 
     With ``write_tables``, writes ``surface_pressure.csv`` and ``release_groups.csv`` in the day
     folder (only the day's own job does; a profiling variant must not write into a day folder
@@ -390,7 +566,7 @@ def final_plan(day_folder, site, product, write_tables=True):
                                          particle_rates=PARTICLE_RATES[product])  # fmt: skip
     if write_tables:
         members.to_csv(day_folder / "release_groups.csv", index=False)
-    return plan
+    return plan, weights_table(obs, members, n_levels)
 
 
 def write_main_input(run_folder):
@@ -404,15 +580,23 @@ def write_main_input(run_folder):
     site = SITES[info["site"]]
     options = Options(**info["options"])
     day_folders = [Path(p) for p in info["day_folders"]]
-    plans = {f.name: final_plan(f, site, info["product"], write_tables=(f == run_folder))
-             for f in day_folders}  # fmt: skip
+    planned = {f.name: final_plan(f, site, info["product"], write_tables=(f == run_folder))
+               for f in day_folders}  # fmt: skip
+    plans = {name: plan for name, (plan, _) in planned.items()}
     plan = plans[day_folders[0].name] if len(plans) == 1 else combine_release_plans(plans)
+    if "part" in info:
+        plan = split_plan(plan, *info["part"])
+    weights = pd.concat([w for _, w in planned.values()], ignore_index=True)
+    weights = weights[weights["release_group"].isin(set(plan["release_group"]))]
     boxes = group_boxes(plan)
     plan.to_csv(run_folder / "release_plan.csv", index=False)
     boxes.to_csv(run_folder / "grids.csv", index=False)
+    if options.layout == "species":
+        species = species_names(weights)
+        species.to_csv(run_folder / "species.csv")
     days = [pd.Timestamp(json.loads((f / "day.json").read_text())["day"]) for f in day_folders]
     settings = run_settings(site, run_folder, min(days), max(days), options)
-    (run_folder / "input.txt").write_text(input_text(plan, boxes, settings, options))
+    (run_folder / "input.txt").write_text(input_text(plan, boxes, settings, options, weights))
     print(f"{run_folder}: {len(boxes)} release groups, {len(plan)} releases")
     return plan
 
@@ -512,6 +696,67 @@ def prepare_variant(name, days, changes, month_folder, product, site, base_optio
     return folder, day_folders
 
 
+def split_plan(plan, part, n_parts):
+    """Release groups of part ``part`` (1..n_parts) of a plan cut into ``n_parts`` runs.
+
+    The groups are taken in plan order (release time) and cut into consecutive chunks with about
+    equal numbers of releases; a group is never divided. The part's releases are renumbered
+    SourceID_1..n (NAME needs them in order); ``day_source_name`` keeps the name in the whole
+    day's plan.
+
+    Raises:
+        ValueError if ``part`` is out of range or the part would have no release group.
+    """
+    if not 1 <= part <= n_parts:
+        raise ValueError(f"Part {part} of {n_parts}?")
+    groups = list(dict.fromkeys(plan["release_group"]))  # in plan order
+    sizes = plan.groupby("release_group", sort=False).size().reindex(groups).to_numpy()
+    # A group goes to the part its middle release falls in, counting releases in plan order.
+    middle = np.cumsum(sizes) - sizes / 2
+    part_of_group = 1 + np.floor(middle * n_parts / len(plan)).astype(int)  # 1..n_parts
+    chosen = {g for g, k in zip(groups, part_of_group, strict=True) if k == part}
+    if not chosen:
+        raise ValueError(f"Part {part} of {n_parts} has no release group")
+    subset = plan[plan["release_group"].isin(chosen)].copy()
+    if "day_source_name" not in subset:  # a multi-day plan has it already (combine_release_plans)
+        subset.insert(0, "day_source_name", subset["source_name"])
+    subset["source_name"] = [f"SourceID_{n}" for n in range(1, len(subset) + 1)]
+    return subset.reset_index(drop=True)
+
+
+def prepare_split(month_folder, days, n_parts, parts=None, changes=None, label=None):
+    """Runs ``profile_<label>_part<k>`` sharing the release groups of one or more prepared days.
+
+    days: the days (consecutive days are combined in one plan first, as ``batch3days``).
+    n_parts: how many runs the groups are cut into (``split_plan``); parts: which of them to
+    prepare (default: all). changes: Options to change from the first day's (e.g. threads).
+    label: the folder name (default ``split<N>_<first day>[-<last day>]``).
+    Each run reuses the days' observation files and surface-pressure runs (already done);
+    ``write_main_input`` keeps only its part. Returns the folders.
+    """
+    month_folder = Path(month_folder)
+    days = [pd.Timestamp(d) for d in days]
+    day_folders = [month_folder / f"{d:%Y%m%d}" for d in days]
+    day_info = json.loads((day_folders[0] / "day.json").read_text())
+    changes = changes or {}
+    options = dataclasses.replace(Options(**day_info["options"]), **changes)
+    if label is None:
+        span = f"{days[0]:%Y%m%d}" + (f"-{days[-1]:%Y%m%d}" if len(days) > 1 else "")
+        label = f"split{n_parts}_{span}"
+    folders = []
+    for part in parts or range(1, n_parts + 1):
+        folder = month_folder / f"profile_{label}_part{part}"
+        (folder / "output").mkdir(parents=True)
+        info = {**day_info, "options": dataclasses.asdict(options),
+                "day_folders": [str(f) for f in day_folders], "variant": f"{label}_part{part}",
+                "changes": changes, "part": [part, n_parts]}  # fmt: skip
+        (folder / "day.json").write_text(json.dumps(info, indent=2) + "\n")
+        write_main_job(folder, f"fut_{label}_p{part}", options)
+        folders.append(folder)
+        print(folder)
+    return folders
+
+
 def prepare_month(product, site_name, month, work, options, profiling=False, days=None):
     """Every day of ``month`` (or ``days``), the met-restore job, profiling variants, submit.sh."""
     site = SITES[site_name]
@@ -566,6 +811,16 @@ if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if args and args[0] == "main-input":
         write_main_input(args[1])
+    elif args and args[0] == "split":
+        flags = dict(a.removeprefix("--").split("=", 1) for a in sys.argv[2:] if "=" in a)
+        changes = {}
+        if "threads" in flags:
+            changes["threads"] = int(flags["threads"])
+        if "output-grids" in flags:
+            changes["output_grids"] = flags["output-grids"]
+        parts = [int(k) for k in flags["parts"].split(",")] if "parts" in flags else None
+        prepare_split(args[1], args[2].split(","), int(args[3]), parts, changes,
+                      flags.get("label"))  # fmt: skip
     else:
         flags = sys.argv[1:]
         chosen = [a.removeprefix("--days=") for a in flags if a.startswith("--days=")]

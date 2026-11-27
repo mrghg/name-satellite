@@ -105,4 +105,75 @@ def test_input_refuses_more_field_requests_than_name_allows():
 
     plan = pd.DataFrame({"release_group": ["G"] * (MAX_FIELD_REQUESTS_PER_RUN // 3 + 1)})
     with pytest.raises(ValueError, match="field requests"):
-        input_text(plan, None, None, Options())
+        input_text(plan, None, None, Options(layout="sources"))
+
+
+def test_species_layout_refuses_more_soundings_than_particles_can_carry():
+    from name_satellite.future.setup import MAX_SPECIES_PER_RUN, input_text
+
+    n = MAX_SPECIES_PER_RUN + 1
+    weights = pd.DataFrame({"sounding_id": [f"s{k}" for k in range(n)], "release_group": "G",
+                            "level_number": 1, "weight": 0.1})  # fmt: skip
+    with pytest.raises(ValueError, match="species"):
+        input_text(pd.DataFrame({"release_group": ["G"]}), None, None, Options(), weights)
+    with pytest.raises(ValueError, match="weights"):
+        input_text(pd.DataFrame({"release_group": ["G"]}), None, None, Options())
+
+
+def test_split_plan_keeps_groups_whole_and_balances_releases():
+    from name_satellite.future.setup import split_plan
+
+    sizes = [16, 16, 32, 16, 16, 48, 16, 16]  # releases per group
+    groups = [f"g{k}" for k, n in enumerate(sizes) for _ in range(n)]
+    names = [f"SourceID_{n}" for n in range(1, len(groups) + 1)]
+    plan = pd.DataFrame({"release_group": groups, "source_name": names})
+    parts = [split_plan(plan, k, 4) for k in range(1, 5)]
+    assert [
+        n for part in parts for n in part["day_source_name"]
+    ] == names  # every release once, in order
+    for part in parts:
+        assert list(part["source_name"]) == [f"SourceID_{n}" for n in range(1, len(part) + 1)]
+        whole = plan[plan["release_group"].isin(part["release_group"])]
+        assert len(whole) == len(part)  # no group divided
+    assert [len(p) for p in parts] == [32, 48, 64, 32]
+    with pytest.raises(ValueError, match="Part 5 of 4"):
+        split_plan(plan, 5, 4)
+
+
+def test_species_layout_weights_each_release_by_its_soundings():
+    from types import SimpleNamespace
+
+    from name_satellite.future.setup import (
+        species_names,
+        species_sources_and_requests_block,
+    )
+
+    # Two release groups of two levels: group A shared by soundings s1 and s2, group B by s3.
+    plan = pd.DataFrame({
+        "source_name": [f"SourceID_{k}" for k in range(1, 5)],
+        "release_group": ["A", "A", "B", "B"], "level_number": [1, 2, 1, 2],
+        "release_start": pd.Timestamp("2013-01-07 15:01"),
+        "release_end": pd.Timestamp("2013-01-07 15:00"),
+        "particles_per_second": 30, "lon": -50.0, "lat": -10.0, "z_pa": 90000.0, "dlon": 0.1,
+        "dlat": 0.1, "dz_pa": 3000.0,
+    })  # fmt: skip
+    weights = pd.DataFrame({
+        "sounding_id": ["s1", "s1", "s2", "s2", "s3", "s3"],
+        "release_group": ["A", "A", "A", "A", "B", "B"],
+        "level_number": [1, 2, 1, 2, 1, 2], "weight": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+    })  # fmt: skip
+    boxes = pd.DataFrame({"release_group": ["A", "B"], "fine_grid": ["HGridF1", "HGridF2"],
+                          "medium_grid": ["HGridM1", "HGridM2"]})  # fmt: skip
+    species = species_names(weights)
+    assert species.to_dict() == {"s1": "SND1", "s2": "SND2", "s3": "SND3"}
+    text = species_sources_and_requests_block(
+        plan, boxes, weights, species, SimpleNamespace(sync_minutes=6), {"window_hours": 242}
+    )
+    lines = text.splitlines()
+    assert lines[1].count("Source Strength") == 2  # at most two soundings share a group
+    assert ", SND1 2.000000e-01 g/s, SND2 4.000000e-01 g/s, Cuboid" in lines[3]  # A, level 2
+    assert ", SND3 5.000000e-01 g/s, , Cuboid" in lines[4]  # B, level 1
+    requests = [line for line in lines if line.startswith("Req_")]
+    assert len(requests) == 9  # three grids per sounding
+    assert "Req_HGridF1_SND2, Mixing Ratio, SND2, , HGridF1," in text
+    assert "Req_HGridC_SND3, Mixing Ratio, SND3, , HGridC," in text

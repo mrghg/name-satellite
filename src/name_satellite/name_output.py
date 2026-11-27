@@ -129,7 +129,7 @@ def _read_field_header(path):
     return info, column_metadata, len(header_lines)
 
 
-def read_fields(path):
+def read_fields(path, label="source"):
     """Read a NAME III text fields file (time-integrated, Output Format "IA") into memory.
 
     NAME omits grid rows in which every field is zero; they are restored here as zeros, so the
@@ -137,9 +137,13 @@ def read_fields(path):
 
     Args:
         path: fields file, plain text or ``.gz``.
+        label: the column header that names each field, and the name of the first dimension:
+            "source" (the default: one field per release) or e.g. "species" (one field per
+            species, requests not restricted to a source).
 
     Returns:
-        xarray.DataArray ``fields`` with dims ``(source, lat, lon)``:
+        xarray.DataArray ``fields`` with dims ``(label, lat, lon)``, by default
+        ``(source, lat, lon)``:
           * values exactly as written by NAME, in the units given by the ``units`` coordinate
             (e.g. "ppm s" for mixing ratio, "g s / m^3" for air concentration);
           * ``source``: NAME source name of each column (our release ID);
@@ -149,12 +153,14 @@ def read_fields(path):
           * attrs: the "Key: value" lines from the top of the file (run name, grid, ...).
 
     Raises:
-        ValueError if the header is not as expected, a source name is repeated, a grid index is
+        ValueError if the header is not as expected, a label is repeated, a grid index is
         out of range or repeated, or the printed coordinates disagree with the grid definition.
     """
     info, meta, n_header_lines = _read_field_header(path)
-    if meta["source"].duplicated().any():
-        raise ValueError(f"{path}: repeated source names in the header")
+    if label not in meta.columns:
+        raise ValueError(f"{path}: no {label!r} row in the header")
+    if meta[label].duplicated().any():
+        raise ValueError(f"{path}: repeated {label} names in the header")
 
     nx = int(info["X grid size"])
     ny = int(info["Y grid size"])
@@ -185,13 +191,11 @@ def read_fields(path):
     values = np.zeros((len(meta), ny, nx))
     values[:, iy, ix] = table.iloc[:, N_PRELIMINARY_COLUMNS:].to_numpy(dtype=float).T
 
-    per_source = {
-        name: ("source", meta[name].to_numpy()) for name in meta.columns if name != "source"
-    }
+    per_field = {name: (label, meta[name].to_numpy()) for name in meta.columns if name != label}
     return xr.DataArray(
         values,
-        dims=("source", "lat", "lon"),
-        coords={"source": meta["source"].to_numpy(), "lat": lat, "lon": lon, **per_source},
+        dims=(label, "lat", "lon"),
+        coords={label: meta[label].to_numpy(), "lat": lat, "lon": lon, **per_field},
         name="fields",
         attrs=info,
     )
