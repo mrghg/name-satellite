@@ -1,6 +1,6 @@
 # NAME 8.7.1 input files: syntax and traps
 
-Observed in our runs (Nov 2026). Working generator: `~/code/name-satellite/src/name_satellite/name_input.py`.
+Observed in our runs (Nov 2026). Working generator: `src/name_satellite/name_input.py` in the `name-satellite` repository (see SKILL.md, "Key paths").
 
 ## General shape
 - Plain text made of blocks: a heading line ending in `:`, a header row of column names, then one

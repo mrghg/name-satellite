@@ -1,7 +1,7 @@
 # NAME 8.7.1 output files
 
-Readers: `~/code/name-satellite/src/name_satellite/name_output.py` (`read_fields`,
-`read_name_fate_file`, `drop_repeated_fate_records`).
+Readers: `src/name_satellite/name_output.py` (`read_fields`, `read_name_fate_file`,
+`drop_repeated_fate_records`) in the `name-satellite` repository (see SKILL.md, "Key paths").
 
 ## Files next to the input
 - `<input>Log.txt`: ends with "Run completed successfully at ..." on success.
