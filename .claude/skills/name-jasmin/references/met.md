@@ -59,3 +59,7 @@ instead shortened back-runs by hand near changeovers and stopped at Mk10.
 ## Memory
 The declarations use each met file's whole global domain. Peak memory is dominated by met and
 output grids, not particles: see performance.md (bounded domain ~4–5 GB; unbounded +5.6 GB).
+- Global grid of each version (pp headers, 28 Nov 2026): Mk6/Mk7 1024 × 769 (~25 km); Mk8/Mk9
+  1536 × 1152 (~17 km, 2.2× the points); Mk10–Mk12 2560 × 1920 (~10 km, 6.0× the points; files
+  packed, so one met time is 2.4 GB on disk against Mk8/9's 3.6 GB unzipped). Memory of runs on
+  Mk8 onwards not yet measured; expect it to grow with the grid points, not the file size.

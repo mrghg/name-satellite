@@ -1,7 +1,7 @@
 # Sizing future-method runs (draft, 28 Nov 2026)
 
 How many soundings to put in one NAME run, for the fewest core-hours. Built from the January and
-August 2013 test runs (10-day back-runs, 4 threads, `future-method` set-up); good to about ±25%,
+August 2013 test runs (10-day back-runs, mostly 4 threads, `future-method` set-up); good to about ±25%,
 to be refined as more runs are made. The NAME behaviour behind it is in
 `dev/notes/name-behaviour.md` ("Run time and field requests").
 
@@ -63,31 +63,65 @@ stated. "Rest" is NAME's total minus the particle loop: mostly reading met.
   speed varies by more than the requests' share of it.
 * **Memory:** 10.3–10.8 GB in every run (any thread count, up to 42 species).
 
-## Best run size (species layout)
+## What a run occupies on a node
 
-With S soundings in a run and p particles per sounding (January 2013: p ≈ 12,800), the cost per
-sounding in core-seconds, with c threads, is c·F/S + a₁·p + 3·k₁·p·S, where a₁ ≈ 14,000 s and
-k₁ ≈ 22 s per million particles are the single-thread values (about 3.7× the 4-thread a and k).
-It is smallest at
+A LOTUS2 `standard` node has 192 cores and 1.54 TB: about **8 GB per core**. A job takes its
+cores *or* its memory, whichever is the larger share of the node, so count its cost as
+core-equivalents = max(threads, memory requested / 8 GB), times its run time. Our Mk6/Mk7 runs
+peak at ~10.5 GB (16 GB requested):
 
-    S* = √(c·F / (3·k₁·p))   ≈ 60 soundings with 1 thread, ≈ 115 with 4 threads
+| Threads | Core-equivalents | 7 Jan part 1 (s) | Cost (core-equivalent-s) |
+|---|---|---|---|
+| 1 | 2 (memory) | 12,055 | 24,100 |
+| **2** | **2** | 7,488 | **15,000** |
+| 4 | 4 | 5,000–6,800 | 20,000–27,000 |
 
-and flat around it: half or twice S* costs about 13% more per sounding. With F ≈ 3,200 s, the best
-1-thread run costs ~280 core-s per sounding and the best 4-thread run ~400 (about 100 and 145
-core-hours for January 2013's ~1,300 soundings). So, to spend the fewest core-hours:
+One thread looks cheapest in cores alone, but a node full of 1-thread, 16 GB jobs runs out of
+memory with half its cores idle. **Two threads match the node's ratio of memory to cores**, so
+nothing is stranded whatever gap the job fills, and they are the default (`THREADS = 2`). (If
+LOTUS2's fair-share counts cores only, 1 thread would look cheaper on the account while taking more
+of the cluster.)
 
-* **Use 1 thread** (`--threads=1`) and **aim for about 50–120 soundings per run**, taken in time
-  order (neighbouring soundings share met and release groups). For January 2013 that is one to
-  three consecutive days per run. A 60-sounding run takes about 5 h, a 120-sounding run about 10 h,
-  well inside the 24 h limit; above ~150 soundings a 1-thread run gets close to it.
-* **Request 16 GB, not 48 GB** (`write_job_script`'s `memory`): every run so far peaked at
-  ~10.5 GB, and a 1-core job holding 48 GB blocks other jobs from the node's memory.
-* Use 4 threads only when a result is needed quickly (one run in about a quarter of the loop
-  time); then aim for 100–200 soundings per run.
-* **Combine consecutive days that are small**, **split days with more than ~120 soundings**
-  (1 thread) or ~200 (4 threads).
+## Best run size (species layout, 2 threads)
+
+With S soundings in a run, p particles per sounding (January 2013: p ≈ 12,800) and c
+core-equivalents, the cost per sounding is c·F/S + c·a_c·p + 3·c·k_c·p·S, where a_c and k_c are the
+values with that many threads (with 2 threads, about 1.9× faster than 1: c·a_c ≈ 14,700 s and
+c·k_c ≈ 23 s per million particles, with F ≈ 3,200 s). It is smallest at
+
+    S* = √(c·F / (3·c·k_c·p))   ≈ 85 soundings with 2 threads (≈ 120 with 4)
+
+and flat around it (half or twice S* costs about 13% more). The best 2-thread run costs ~340
+core-equivalent-s per sounding, against ~410 with 4 threads and ~560 with 1: about 120
+core-equivalent-hours for January 2013's ~1,300 soundings. So:
+
+* **Aim for about 50–150 soundings per run (best ~85)**, taken in time order (neighbouring soundings
+  share met and release groups). For January 2013 that is two consecutive days per run. An
+  85-sounding run takes about 4–5 h.
+* **Combine consecutive days that are small; split days with more than ~150 soundings.**
+* Use 4 threads only when a result is needed quickly.
 * Limits per run: at most 216 soundings (species particles can carry; not yet reached), 3,000
   field requests, 7 M particles (`MAX_PARTICLES`), 24 h on the `high` queue.
 
-These numbers are good to about ±25%; refine them from the first production months (in particular
-a₁ and k₁ in the species layout, measured so far only through the 4-thread runs).
+These numbers are good to about ±25%; the 2-thread figure is one run. Refine them from the first
+production months (in particular in the species layout, so far measured only with 4 threads).
+
+## Memory and met version (outstanding: not yet measured beyond Mk7)
+
+Peak memory is mostly met (an unbounded run holds global met: +5.6 GB over a bounded one, see the
+`name-jasmin` skill), plus the output grids. Mk6 and Mk7 have the same grid, so the same memory.
+Later versions are finer (first file of each version, 28 Nov 2026):
+
+| Version | Grid (whole globe) | Points vs Mk6 | One met time, as stored |
+|---|---|---|---|
+| Mk6, Mk7 | 1024 × 769 (~25 km) | 1× | 1.6 GB |
+| Mk8, Mk9 | 1536 × 1152 (~17 km) | 2.2× | 3.6 GB |
+| Mk10–Mk12 | 2560 × 1920 (~10 km) | 6.0× | 2.4 GB (packed) |
+
+NAME holds the fields unpacked, so memory should follow the grid points, not the file sizes. If
+the ~6–9 GB of met in today's ~10.5 GB scales with the points: **Mk8/9 roughly 17–25 GB, Mk10–12
+roughly 40–60 GB**. Met reading (F) will also grow, by 1.5–2× in bytes read and more if unpacking
+costs time. Both change the sizing: with ~20 GB the node ratio is met by 2–3 threads, with ~50 GB by
+about 6, and a larger F favours larger runs. Until measured, jobs on these versions request 48 GB
+(`JOB_MEMORY`); a 1-hour test run on each grid would measure the memory (it is reached at the
+start), and a full run the read time.

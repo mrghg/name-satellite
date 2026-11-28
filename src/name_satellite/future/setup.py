@@ -125,7 +125,14 @@ from name_satellite.surface_pressure import (
 
 MAX_AGE_HOURS = 240
 SYNC_MINUTES = 6
-THREADS = 4
+# 2 threads: met reading does not speed up with threads, and a ~10.5 GB run on 2 cores matches
+# LOTUS2's 8 GB per core, so 2 threads use the least of a node per run (docs/future/run-sizing.md).
+THREADS = 2
+# Memory to request for the main NAME job, by met version. Mk6/Mk7 runs peaked at 10.3-10.8 GB.
+# Newer versions have finer grids (Mk8/9: 2.2x the points, Mk10-12: 6x) and are not yet measured:
+# 48 GB until they are (docs/future/run-sizing.md, "Memory and met version").
+JOB_MEMORY = {"UMG_Mk6PT": "16G", "UMG_Mk7PT": "16G"}
+UNMEASURED_JOB_MEMORY = "48G"
 NEAR_SOURCE_HOURS = 1.0  # velocity memory + inhomogeneous turbulence (A01 §1.7.5.5: 30 min-1 h)
 SKEW_HOURS = 0.0
 DEEP_CONVECTION = "New"
@@ -614,14 +621,18 @@ def add_sampler(job_path, run_folder, input_path):
     job_path.write_text(job)
 
 
-def write_main_job(run_folder, job_name, options):
-    """The main job: ``main-input``, then the patched NAME with the sampler beside it."""
+def write_main_job(run_folder, job_name, options, met_version):
+    """The main job: ``main-input``, then the patched NAME with the sampler beside it.
+
+    met_version: the run's ``met.MetVersion`` (sets the memory request, ``JOB_MEMORY``).
+    """
+    memory = JOB_MEMORY.get(met_version.name, UNMEASURED_JOB_MEMORY)
     write = (f"cd {REPO}\n~/.local/bin/uv run --no-sync python -m name_satellite.future.setup "
              f"main-input {run_folder} || exit 1")  # fmt: skip
     qos, time = ("debug", "00:30:00") if options.test else ("high", "24:00:00")
     job = write_job_script(
         run_folder / "job.sbatch", run_folder, run_folder / "input.txt",
-        threads=options.threads, qos=qos, time=time, memory="48G", job_name=job_name,
+        threads=options.threads, qos=qos, time=time, memory=memory, job_name=job_name,
         before_name=write, name_dir=PATCHED_NAME_DIR,
     )  # fmt: skip
     add_sampler(job, run_folder, run_folder / "input.txt")
@@ -672,7 +683,7 @@ def prepare_day(product, site, day, month_folder, options):
     write_job_script(folder / "job.sbatch", folder, folder / "input.txt", threads=1,
                      qos="debug" if options.test else "standard", time="00:30:00", memory="8G",
                      job_name=f"fut_{day:%Y%m%d}_ps")  # fmt: skip
-    write_main_job(run_folder, f"fut_{day:%Y%m%d}", options)
+    write_main_job(run_folder, f"fut_{day:%Y%m%d}", options, settings.met_version)
 
     timing = run_timing(plan, settings)
     row.update(status="prepared", release_groups=members["release_group"].nunique(),
@@ -692,7 +703,9 @@ def prepare_variant(name, days, changes, month_folder, product, site, base_optio
             "options": dataclasses.asdict(options), "day_folders": [str(f) for f in day_folders],
             "variant": name, "changes": changes}  # fmt: skip
     (folder / "day.json").write_text(json.dumps(info, indent=2) + "\n")
-    write_main_job(folder, f"fut_prof_{name}", options)
+    dates = pd.to_datetime(days)
+    settings = run_settings(site, folder, dates.min(), dates.max(), options)
+    write_main_job(folder, f"fut_prof_{name}", options, settings.met_version)
     return folder, day_folders
 
 
@@ -743,6 +756,7 @@ def prepare_split(month_folder, days, n_parts, parts=None, changes=None, label=N
     if label is None:
         span = f"{days[0]:%Y%m%d}" + (f"-{days[-1]:%Y%m%d}" if len(days) > 1 else "")
         label = f"split{n_parts}_{span}"
+    settings = run_settings(SITES[day_info["site"]], month_folder, days[0], days[-1], options)
     folders = []
     for part in parts or range(1, n_parts + 1):
         folder = month_folder / f"profile_{label}_part{part}"
@@ -751,7 +765,7 @@ def prepare_split(month_folder, days, n_parts, parts=None, changes=None, label=N
                 "day_folders": [str(f) for f in day_folders], "variant": f"{label}_part{part}",
                 "changes": changes, "part": [part, n_parts]}  # fmt: skip
         (folder / "day.json").write_text(json.dumps(info, indent=2) + "\n")
-        write_main_job(folder, f"fut_{label}_p{part}", options)
+        write_main_job(folder, f"fut_{label}_p{part}", options, settings.met_version)
         folders.append(folder)
         print(folder)
     return folders
