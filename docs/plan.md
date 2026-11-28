@@ -176,8 +176,12 @@ it (no switches in shared code; its choices are `future.Options` fields), shared
 import `future`, and the legacy validation tests keep passing.
 - ☑ January 2013 month (10-day runs, nested grids, end positions); reader and notebook.
 - ☑ One species per sounding (D28): same footprints, 6–11× fewer field requests.
-- ◐ Run-cost model and run sizing ([future/run-sizing.md](future/run-sizing.md)); threads,
-  read contention and multi-day runs still being measured.
+- ◐ Run-cost model and run sizing ([future/run-sizing.md](future/run-sizing.md), D29): threads,
+  read contention and multi-day runs measured on Mk6 (2 threads, ~85 soundings per run).
+- ☐ **Outstanding: memory and met-reading time on the finer met (Mk8–Mk12).** Not yet measured;
+  jobs on these versions request 48 GB meanwhile. A 1-hour debug run on Mk10–12 (and Mk8/9) for
+  peak memory, and one full run for the read time; then set `JOB_MEMORY` and the thread count per
+  version (run-sizing.md, "Memory and met version").
 - ☐ A planner that groups releases into jobs for the fewest core-hours.
 - ☐ Output options to scope: footprints for upper layers (mass conservation), time-resolved
   footprints.

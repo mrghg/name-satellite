@@ -177,3 +177,17 @@ def test_species_layout_weights_each_release_by_its_soundings():
     assert len(requests) == 9  # three grids per sounding
     assert "Req_HGridF1_SND2, Mixing Ratio, SND2, , HGridF1," in text
     assert "Req_HGridC_SND3, Mixing Ratio, SND3, , HGridC," in text
+
+
+def test_main_job_uses_two_threads_and_memory_by_met_version(tmp_path):
+    from name_satellite.future.setup import write_main_job
+    from name_satellite.met import MET_VERSIONS
+
+    by_name = {v.name: v for v in MET_VERSIONS}
+    for name, memory in (("UMG_Mk6PT", "16G"), ("UMG_Mk7PT", "16G"), ("UMG_Mk10PT", "48G")):
+        folder = tmp_path / name
+        folder.mkdir()
+        write_main_job(folder, "test", Options(), by_name[name])
+        job = (folder / "job.sbatch").read_text()
+        assert f"#SBATCH --mem={memory}\n" in job
+        assert "#SBATCH --cpus-per-task=2\n" in job
