@@ -115,6 +115,33 @@ timer summary covered 12% of a 240 h unbounded run (particle loop 191 s of 1,834
 reading from outside the process (`/proc` CPU per thread and bytes read; `future/sampler.py` on
 branch `future-method`).
 
+## Run time and field requests; one species per sounding (27 Nov 2026, patched 8.7.1)
+- **Run time grows with particles × field requests in the run**, whatever source or species each
+  request is restricted to. Same 240 releases (0.37 M particles, 10-day back-runs, 4 threads,
+  Mk6), 720 requests (three per release) vs 126 (three per sounding): particle loop 3,444 s vs
+  1,942 s, NAME total 8,126 s vs 5,138 s. About 2.5 s per request for these particles
+  (~7 s per request per million particles), on top of ~4,400 s per million particles.
+- **A source can emit several species at different rates**: repeat the `Source Strength` column,
+  one `<species> <rate> g/s` per column (leave unused columns blank). A field request with a
+  `Species` and a blank `Source` collects that species from every source. Declare
+  `Max # Species` in `Main Options` (at least the number of species).
+- **One species per sounding gives the column footprint directly**: each release emits every
+  sounding's species at that sounding's pressure weight × averaging kernel for the level (g/s,
+  molecular weight 1); the species field equals the weighted sum of the per-release fields to
+  NAME's output precision (42 soundings over 15 release groups, 1 h and 10-day runs: within
+  3 × 10⁻⁶ of each field's maximum). Particle paths do not depend on the species they carry.
+- Fields files of such requests name the species in the header and "All sources" as the source.
+- Particles can carry at most 216 species in 8.7.1 (not yet reached; 42 tested).
+- **Threads (27 Nov 2026, same 240 releases, 720 requests).** The particle loop scales almost
+  linearly up to 4 threads (1 thread 9,116 s, 2 threads 4,790 s, 4 threads 2,200–2,700 s); the rest
+  of the run (mostly reading met, ~2,700–4,100 s) does not speed up with threads. Allocated
+  core-seconds: 1 thread 12,060, 2 threads 14,980, 4 threads 20,000–27,000. Memory ~10.5 GB
+  whatever the thread count.
+- **Four identical runs started together** on LOTUS2 did not slow each other down (three took
+  5,012 s, one 6,758 s; alone the same run took 5,564 and 6,794 s): run-to-run spread from the
+  storage is larger than any contention at this scale.
+- Sizing runs from these numbers: `docs/future/run-sizing.md`.
+
 ## Runs that look successful but are not
 NAME can exit 0 while writing errors to `<input>Error.txt` (e.g. particles lost when two jobs restored
 met into the same folder at once). Judge a run by its error file; our job scripts fail if it is not

@@ -129,7 +129,7 @@ def _read_field_header(path):
     return info, column_metadata, len(header_lines)
 
 
-def read_fields(path):
+def read_fields(path, label="source"):
     """Read a NAME III text fields file (time-integrated, Output Format "IA") into memory.
 
     NAME omits grid rows in which every field is zero; they are restored here as zeros, so the
@@ -137,9 +137,13 @@ def read_fields(path):
 
     Args:
         path: fields file, plain text or ``.gz``.
+        label: the column header that names each field, and the name of the first dimension:
+            "source" (the default: one field per release) or e.g. "species" (one field per
+            species, requests not restricted to a source).
 
     Returns:
-        xarray.DataArray ``fields`` with dims ``(source, lat, lon)``:
+        xarray.DataArray ``fields`` with dims ``(label, lat, lon)``, by default
+        ``(source, lat, lon)``:
           * values exactly as written by NAME, in the units given by the ``units`` coordinate
             (e.g. "ppm s" for mixing ratio, "g s / m^3" for air concentration);
           * ``source``: NAME source name of each column (our release ID);
@@ -149,12 +153,14 @@ def read_fields(path):
           * attrs: the "Key: value" lines from the top of the file (run name, grid, ...).
 
     Raises:
-        ValueError if the header is not as expected, a source name is repeated, a grid index is
+        ValueError if the header is not as expected, a label is repeated, a grid index is
         out of range or repeated, or the printed coordinates disagree with the grid definition.
     """
     info, meta, n_header_lines = _read_field_header(path)
-    if meta["source"].duplicated().any():
-        raise ValueError(f"{path}: repeated source names in the header")
+    if label not in meta.columns:
+        raise ValueError(f"{path}: no {label!r} row in the header")
+    if meta[label].duplicated().any():
+        raise ValueError(f"{path}: repeated {label} names in the header")
 
     nx = int(info["X grid size"])
     ny = int(info["Y grid size"])
@@ -185,13 +191,11 @@ def read_fields(path):
     values = np.zeros((len(meta), ny, nx))
     values[:, iy, ix] = table.iloc[:, N_PRELIMINARY_COLUMNS:].to_numpy(dtype=float).T
 
-    per_source = {
-        name: ("source", meta[name].to_numpy()) for name in meta.columns if name != "source"
-    }
+    per_field = {name: (label, meta[name].to_numpy()) for name in meta.columns if name != label}
     return xr.DataArray(
         values,
-        dims=("source", "lat", "lon"),
-        coords={"source": meta["source"].to_numpy(), "lat": lat, "lon": lon, **per_source},
+        dims=(label, "lat", "lon"),
+        coords={label: meta[label].to_numpy(), "lat": lat, "lon": lon, **per_field},
         name="fields",
         attrs=info,
     )
@@ -380,18 +384,24 @@ def drop_repeated_fate_records(particles, max_gap_seconds=360.0):
         ``particles`` with one row per (source_number, particle_index), in the original order.
 
     Raises:
-        ValueError if the file has no particle index, or a particle's records differ in fate
-        code or are further apart than ``max_gap_seconds`` (not the known X20 pattern).
+        ValueError if the file has no particle index, or a particle's records are further apart
+        than ``max_gap_seconds``, or the later record's fate code is neither the first's nor the
+        first's plus 16 (not the known X20 pattern).
     """
     if "particle_index" not in particles:
         raise ValueError("Needs the patched NAME's particle index (met.PATCHED_NAME_DIR)")
     key = ["source_number", "particle_index"]
     repeated = particles[particles.duplicated(key, keep=False)]
     if len(repeated):
-        groups = repeated.groupby(key)
+        groups = repeated.sort_values("age_hours", kind="stable").groupby(key)
         gap_seconds = groups["age_hours"].agg(lambda a: (a.max() - a.min()) * 3600.0)
-        codes = groups["fate_code"].nunique()
-        if (gap_seconds > max_gap_seconds).any() or (codes > 1).any():
+        # The two records share a fate code, except that a particle leaving within one step of the
+        # maximum travel time can get a second record at that time with the "maximum travel time"
+        # bit (16) added (8 -> 24; seen once in 22 days of 10-day runs, Jan 2013).
+        first_code = groups["fate_code"].first()
+        last_code = groups["fate_code"].last()
+        codes_ok = (last_code == first_code) | (last_code == (first_code | 16))
+        if (gap_seconds > max_gap_seconds).any() or (~codes_ok).any():
             raise ValueError("Repeated fate records that don't match the known X20 pattern")
     first = particles.sort_values("age_hours", kind="stable").drop_duplicates(key, keep="first")
     return particles.loc[sorted(first.index)]

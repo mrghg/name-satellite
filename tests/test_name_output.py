@@ -309,3 +309,22 @@ def test_drop_repeated_fate_records():
     particles.loc[2, "age_hours"] = 49.0  # an hour later: longer than a sync step
     with pytest.raises(ValueError, match="X20"):
         drop_repeated_fate_records(particles)
+
+
+def test_repeated_fate_record_at_the_maximum_travel_time():
+    from name_satellite.name_output import drop_repeated_fate_records
+
+    # Left through the top 45 s before 240 h, then a second record at 240 h with bit 16 added
+    # (25 Jan 2013 10-day run). Listed latest first to check the order doesn't matter.
+    particles = pd.DataFrame(
+        {
+            "source_number": [96, 96],
+            "particle_index": [137, 137],
+            "age_hours": [240.0, 239.9874],
+            "fate_code": [24, 8],
+        }
+    )
+    assert drop_repeated_fate_records(particles).index.tolist() == [1]
+    particles["fate_code"] = [8, 24]  # bit 16 on the earlier record: not the pattern
+    with pytest.raises(ValueError, match="X20"):
+        drop_repeated_fate_records(particles)

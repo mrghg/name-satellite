@@ -52,6 +52,33 @@ Settings: no side boundaries, 20 km top, deep convection `New`, near-source sche
 | `Deep Convection? = No` | 176 vs 207 min (convection costs ~15%) |
 | Detailed timers (`Summary Only? = No`) | 119 vs 123 min (no cost) |
 
+## Run time and field requests; one species per sounding (27 Nov 2026, patched 8.7.1)
+- **Run time grows with particles × field requests in the run**, whatever source or species each
+  request is restricted to. Same 240 releases (0.37 M particles, 10-day back-runs, 4 threads,
+  Mk6), 720 requests (three per release) vs 126 (three per sounding): particle loop 3,444 s vs
+  1,942 s, NAME total 8,126 s vs 5,138 s. About 2.5 s per request for these particles
+  (~7 s per request per million particles), on top of ~4,400 s per million particles.
+- **A source can emit several species at different rates**: repeat the `Source Strength` column,
+  one `<species> <rate> g/s` per column (leave unused columns blank). A field request with a
+  `Species` and a blank `Source` collects that species from every source. Declare
+  `Max # Species` in `Main Options` (at least the number of species).
+- **One species per sounding gives the column footprint directly**: each release emits every
+  sounding's species at that sounding's pressure weight × averaging kernel for the level (g/s,
+  molecular weight 1); the species field equals the weighted sum of the per-release fields to
+  NAME's output precision (42 soundings over 15 release groups, 1 h and 10-day runs: within
+  3 × 10⁻⁶ of each field's maximum). Particle paths do not depend on the species they carry.
+- Fields files of such requests name the species in the header and "All sources" as the source.
+- Particles can carry at most 216 species in 8.7.1 (not yet reached; 42 tested).
+- **Threads (27 Nov 2026, same 240 releases, 720 requests).** The particle loop scales almost
+  linearly up to 4 threads (1 thread 9,116 s, 2 threads 4,790 s, 4 threads 2,200–2,700 s); the rest
+  of the run (mostly reading met, ~2,700–4,100 s) does not speed up with threads. Allocated
+  core-seconds: 1 thread 12,060, 2 threads 14,980, 4 threads 20,000–27,000. Memory ~10.5 GB
+  whatever the thread count.
+- **Four identical runs started together** on LOTUS2 did not slow each other down (three took
+  5,012 s, one 6,758 s; alone the same run took 5,564 and 6,794 s): run-to-run spread from the
+  storage is larger than any contention at this scale.
+- Sizing runs from these numbers: `docs/future/run-sizing.md` in the name-satellite repository.
+
 ## Memory
 - Bounded domain: 3.8 GB (1 h travel) to 5.0–5.4 GB (30 days).
 - **No side boundaries adds a fixed ~5.6 GB** (9.4 GB), present from the start and not growing as
