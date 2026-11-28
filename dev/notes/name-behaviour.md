@@ -132,6 +132,14 @@ branch `future-method`).
   3 × 10⁻⁶ of each field's maximum). Particle paths do not depend on the species they carry.
 - Fields files of such requests name the species in the header and "All sources" as the source.
 - Particles can carry at most 216 species in 8.7.1 (not yet reached; 42 tested).
+- **Threads (27 Nov 2026, same 240 releases, 720 requests).** The particle loop scales almost
+  linearly up to 4 threads (1 thread 9,116 s, 2 threads 4,790 s, 4 threads 2,200–2,700 s); the rest
+  of the run (mostly reading met, ~2,700–4,100 s) does not speed up with threads. Allocated
+  core-seconds: 1 thread 12,060, 2 threads 14,980, 4 threads 20,000–27,000. Memory ~10.5 GB
+  whatever the thread count.
+- **Four identical runs started together** on LOTUS2 did not slow each other down (three took
+  5,012 s, one 6,758 s; alone the same run took 5,564 and 6,794 s): run-to-run spread from the
+  storage is larger than any contention at this scale.
 - Sizing runs from these numbers: `docs/future/run-sizing.md`.
 
 ## Runs that look successful but are not
